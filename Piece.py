@@ -1,7 +1,6 @@
 from enum import Enum
-
-from Location import *
-from Board import *
+from Location import Location
+from Board import Board
 
 class PieceType(Enum):
     PAWN = 0

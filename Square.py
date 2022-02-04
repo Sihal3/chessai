@@ -1,6 +1,6 @@
-from Board import *
-from Piece import *
-from Location import *
+from Board import Board
+from Piece import PieceType, Team, Piece
+from Location import Location
 
 class Square(Location):
     x = None

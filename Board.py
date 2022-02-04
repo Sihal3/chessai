@@ -1,9 +1,9 @@
 class Board():
     pass
 
-from Location import *
-from Piece import *
-from Square import *
+from Location import Location
+from Piece import PieceType, Piece, Team
+from Square import Square
 
 class Board():
     board = None
