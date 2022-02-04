@@ -1,5 +1,6 @@
 from enum import Enum
 
+from Location import *
 from Board import *
 
 class PieceType(Enum):
@@ -11,30 +12,30 @@ class PieceType(Enum):
     KING = 5
 
     def __str__(self):
-        return '{0}'.format(self.value)
+        return '{0}'.format(self.name)
 
     def value(self) -> int:
-        if self.value == "PAWN":
+        if self.name == "PAWN":
             return 1
-        elif self.value == "KNIGHT" or self.value == "BISHOP":
+        elif self.name == "KNIGHT" or self.name == "BISHOP":
             return 3
-        elif self.value == "ROOK":
+        elif self.name == "ROOK":
             return 5
-        elif self.value == "QUEEN":
+        elif self.name == "QUEEN":
             return 9
         else:
             return 100
 
     def toString(self) -> str:
-        if self.value == "PAWN":
+        if self.name == "PAWN":
             return 'P'
-        elif self.value == "KNIGHT":
+        elif self.name == "KNIGHT":
             return 'N'
-        elif self.value == "BISHOP":
+        elif self.name == "BISHOP":
             return 'B'
-        elif self.value == "ROOK":
+        elif self.name == "ROOK":
             return 'R'
-        elif self.value == "QUEEN":
+        elif self.name == "QUEEN":
             return 'Q'
         else:
             return 'K'
@@ -52,15 +53,16 @@ class Piece(object):
     square = None
     board = None
 
+    def toString(self) -> str:
+        return self.type.toString()
 
-    def __init__(self, type: PieceType, color: Team, loc: Location, board: Board):
+def pinit (self, type: PieceType, color: Team, loc: Location, board: Board):
         self.type = type
-        self.value = self.PIECEVALS[self.type]
+        self.value = self.type.value
         self.color = color
         self.board = board
         self.square = self.board.getSquare(loc)
         self.x = self.square.x
         self.y = self.square.y
 
-    def toString(self) -> str:
-        return self.type.toString()
+Piece.__init__ = pinit
