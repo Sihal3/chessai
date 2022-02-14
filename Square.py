@@ -24,13 +24,13 @@ class Square(Location):
         self.piece = None
 
     def isOccupied(self) -> bool:
-        return True if self.piece else False
+        return True if self.piece is not None else False
 
-    def toString(self) -> str:
+    def __str__(self):
         # return [N] for knight
         s = "["
-        if self.piece:
-            s += self.piece.toString()
+        if self.piece is not None:
+            s += str(self.piece)
         else:
             s += " "
         s += "]"

@@ -2,15 +2,21 @@ class Location(object):
     x = None
     y = None
 
-    def __init__(self, x: int = None, y: int = None, loc: str = None):
-        if x and y:
+    def __init__(self, x: int = None, y: int = None):
+        if x is not None and y is not None:
             self.x = x
             self.y = y
-        elif loc:
+        elif x is not None and isinstance(x,str):
             # Takes in a board value, ex. A1, and returns an array [0,0]
-            loc = loc.upper()[:2]
-            rows = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7, }
-            self.x = rows[loc[0]]
-            self.y = int(loc[1])
+            x = x.upper()[:2]
+            rows = {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, }
+            self.x = rows[x[0]]
+            self.y = int(x[1])
         else:
             raise(ValueError)
+
+    def __str__(self):
+        return "Loc(" + str(self.x) + ", " + str(self.y) + ")"
+
+    def toArr(self):
+        return [self.x, self.y]
