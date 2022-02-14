@@ -10,7 +10,9 @@ class PieceType(Enum):
     QUEEN = 4
     KING = 5
 
-    _pawnMoves = [[0,0],
+    def moves(self):
+        if self.name == "PAWN":
+            return [[0,0],
                   [0,1],
                   [0,2],
                   [0,-1],
@@ -19,8 +21,8 @@ class PieceType(Enum):
                   [-1, 1],
                   [1,-1],
                   [-1,1]]
-
-    _knightMoves = [[0,0],
+        elif self.name == "KNIGHT":
+            return [[0,0],
                     [1,2],
                     [2,1],
                     [2,-1],
@@ -29,8 +31,8 @@ class PieceType(Enum):
                     [-2,-1],
                     [-2,1],
                     [-1,2]]
-
-    _bishopMoves = [[0,0],
+        elif self.name == "BISHOP":
+            return [[0,0],
                     [-7,-7],
                     [-6,-6],
                     [-5,-5],
@@ -59,8 +61,8 @@ class PieceType(Enum):
                     [3,3],
                     [2,2],
                     [1,1]]
-
-    _rookMoves = [[0,0],
+        elif self.name == "ROOK":
+            return [[0,0],
                   [-7,0],
                   [-6,0],
                   [-5,0],
@@ -89,10 +91,66 @@ class PieceType(Enum):
                   [0,3],
                   [0,2],
                   [0,1]]
-
-    _queenMoves = _bishopMoves+_rookMoves[1:]
-
-    _kingMoves = [[0,0],
+        elif self.name == "QUEEN":
+            return [[0,0],
+                    [-7,-7],
+                    [-6,-6],
+                    [-5,-5],
+                    [-4,-4],
+                    [-3,-3],
+                    [-2,-2],
+                    [-1,-1],
+                    [-7,7],
+                    [-6,6],
+                    [-5,5],
+                    [-4,4],
+                    [-3,3],
+                    [-2,2],
+                    [-1,1],
+                    [7,-7],
+                    [6,-6],
+                    [5,-5],
+                    [4,-4],
+                    [3,-3],
+                    [2,-2],
+                    [1,-1],
+                    [7,7],
+                    [6,6],
+                    [5,5],
+                    [4,4],
+                    [3,3],
+                    [2,2],
+                    [1,1],
+                    [-7, 0],
+                    [-6, 0],
+                    [-5, 0],
+                    [-4, 0],
+                    [-3, 0],
+                    [-2, 0],
+                    [-1, 0],
+                    [7, 0],
+                    [6, 0],
+                    [5, 0],
+                    [4, 0],
+                    [3, 0],
+                    [2, 0],
+                    [1, 0],
+                    [0, -7],
+                    [0, -6],
+                    [0, -5],
+                    [0, -4],
+                    [0, -3],
+                    [0, -2],
+                    [0, -1],
+                    [0, 7],
+                    [0, 6],
+                    [0, 5],
+                    [0, 4],
+                    [0, 3],
+                    [0, 2],
+                    [0, 1]]
+        else:
+            return [[0,0],
                   [-1,-1],
                   [-1,0],
                   [-1,1],
@@ -212,13 +270,45 @@ def getLegalMoves (self):
             forward = 1
         else:
             forward = -1
+
         if(not self.forwardSquare.isOccupied()):
             moveList.append(self.forwardLoc.toArr())
-            if(not self.hasMoved and not self.board.getSquare(self.x, self.y+forward*2).isOccupied()):
+            if(not self.hasMoved and not self.board.isOccupied(self.x, self.y+forward*2)):
                 moveList.append([self.x, self.y+(forward*2)])
         for loc in [Location(self.x+1, self.y+forward), Location(self.x-1, self.y+forward)]:
-            if(self.board.getSquare(loc).isOccupied() and self.board.getPiece(loc).isOpponent(self)):
+            if(self.board.isOccupied(loc) and self.board.getPiece(loc).isOpponent(self)):
                 moveList.append(loc.toArr())
+
+    elif self.type == PieceType.KNIGHT:
+        for move in self.type.moves():
+            loc = Location(self.x+move[0], self.y+move[1])
+            if(loc.isOnBoard() and not self.board.isOccupied(loc)):
+                moveList.append(loc.toArr())
+            elif(loc.isOnBoard() and self.board.isOccupied(loc) and self.board.getPiece(loc).isOpponent(self)):
+                moveList.append(loc.toArr())
+
+    elif self.type == PieceType.BISHOP:
+        # to the right
+        for i in [1,2,3,4]:
+            for x in range(1,8):
+                if i == 1:
+                    loc = Location(self.x+x, self.y+x)
+                elif i == 2:
+                    loc = Location(self.x - x, self.y+x)
+                elif i == 3:
+                    loc = Location(self.x+x, self.y-x)
+                else:
+                    loc = Location(self.x-x, self.y - x)
+
+                if not loc.isOnBoard():
+                    break
+                if self.board.isOccupied(loc):
+                    if self.board.getPiece(loc).isOpponent(self):
+                        moveList.append(loc.toArr())
+                    break
+                moveList.append(loc.toArr())
+
+
     return moveList
 
 

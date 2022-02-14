@@ -66,10 +66,9 @@ class Board():
         return b
 
     def movePiece(self, fromLoc: Location = None, toLoc: Location = None):
-        if isinstance(fromLoc, str):
-            toLoc = fromLoc.upper()[-2:]
-            rows = {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, }
-            toLoc = Location(rows[toLoc[0]], int(toLoc[1]))
+        if isinstance(fromLoc, str) and toLoc is None:
+            if len(fromLoc) == 4:
+                self._move(Location(fromLoc[0:2]), Location(fromLoc[2:4]))
         elif isinstance(fromLoc, Location):
             self._move(fromLoc, toLoc)
         else:
@@ -96,6 +95,15 @@ class Board():
                 You can also enter moves with starting and ending square, like e2e4.
                 Castling can be signified with O-O or O-O-O.
                """
+
+    def onTheMap(self, loc):
+        if(type(loc) == Location):
+            if(loc.x > 0 and loc.x < 9 and loc.y > 0 and loc.y < 9):
+                return True
+        return False
+
+    def isOccupied(self, loc):
+        return self.getSquare(loc).isOccupied()
 
 
 

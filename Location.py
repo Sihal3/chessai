@@ -20,3 +20,8 @@ class Location(object):
 
     def toArr(self):
         return [self.x, self.y]
+
+    def isOnBoard(self):
+        if (self.x > 0 and self.x < 9 and self.y > 0 and self.y < 9):
+            return True
+        return False
