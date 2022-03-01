@@ -31,6 +31,15 @@ class Board():
         takenPieces = []
         timeSincePawnMove = 0
 
+    def swapMoveMode(self):
+        if self.moveMode == 'uci':
+            self.moveMode = 'san'
+            return True
+        elif self.moveMode == 'san':
+            self.moveMode = 'uci'
+            return True
+        return False
+
     def boardInit(self):
         # Initiates an 8x8 array and places the starting formation of pieces
         self.board = [[Square(x,y,self) for y in range(1,9)] for x in range(1,9)]
@@ -89,7 +98,9 @@ class Board():
         if(not self.gameOver):
             team = self.getActiveTeam()
 
-            if isinstance(fromLoc, str) and toLoc is None:
+            if isinstance(fromLoc, Location):
+                pass
+            elif isinstance(fromLoc, str) and toLoc is None:
 
                 # offering a draw or resigning
                 if fromLoc == 'draw':
@@ -101,12 +112,11 @@ class Board():
                     self.gameOver = True
                     return
 
-                move = fromLoc[-1]
-                if len(fromLoc) == 4 or len(fromLoc) == 5:
-                    toLoc = Location(fromLoc[2:4])
-                    fromLoc = Location(fromLoc[0:2])
-            elif isinstance(fromLoc, Location):
-                pass
+                if self.moveMode == 'uci':
+                    fromLoc, toLoc, modifier = convertUCI(fromLoc, team)
+                elif self.moveMode == 'san':
+                    fromLoc, toLoc, modifier = convertSAN(fromLoc, team)
+
             else:
                 print("Improper parameters.")
 
@@ -164,6 +174,8 @@ class Board():
             else:
                 print("Illegal Move. Try again.")
 
+            # GAME END STATES
+
             # checkmate
             if(self.inCheck(team.opponent()) and not self.getLegalMoves(team.opponent())):
                 print("And that's mate. Good game.")
@@ -185,8 +197,6 @@ class Board():
                     print("Three-Fold Repetition has occurred, this match is a draw.")
                     self.gameOver = True
                     return
-
-
         else:
             print("Game is Over.")
 
@@ -285,6 +295,24 @@ class Board():
                 self.getSquare(toLoc).setPiece(takenPiece)
 
         return newMoveList
+
+    def convertUCI(self, move, team):
+        if move == 'O-O' or move == '0-0':
+            return (Location(5, 1 if team == Team.WHITE else 8), Location(7, 1 if team == Team.WHITE else 8))
+        if move == 'O-O-O' or move == '0-0-0':
+            return (Location(5, 1 if team == Team.WHITE else 8), Location(3, 1 if team == Team.WHITE else 8))
+        if len(move) == 4:
+            return (Location(move[0:2]), Location(move[2:4]), '')
+        elif len(move) == 5:
+            return (Location(move[0:2]), Location(move[2:4]), move[-1])
+
+    def convertSAN(self, move, team):
+        if move == 'O-O' or move == '0-0':
+            return (Location(5, 1 if team == Team.WHITE else 8), Location(7, 1 if team == Team.WHITE else 8))
+        if move == 'O-O-O' or move == '0-0-0':
+            return (Location(5, 1 if team == Team.WHITE else 8), Location(3, 1 if team == Team.WHITE else 8))
+        if len(move) == 2:
+            for piece in self.getPieces(team):
 
     def canKCastle(self, team):
         king = self.getKing(team)
