@@ -19,6 +19,9 @@ class Location(object):
     def __str__(self):
         return "Loc(" + str(self.x) + ", " + str(self.y) + ")"
 
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
     def toArr(self):
         return [self.x, self.y]
 

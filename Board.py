@@ -4,6 +4,7 @@ class Board():
 from Location import Location
 from Piece import PieceType, Piece, Team
 from Square import Square
+import re
 
 class Board():
 
@@ -14,9 +15,11 @@ class Board():
     moveLog = []
     pastBoards = []
     gameOver = False
-    moveMode = 'uci'
+    moveMode = 'san'
     takenPieces = []
     timeSincePawnMove = 0
+
+    SAN_REGEX = re.compile(r"^([nbkrqNBKRQ])?([a-h])?([1-8])?[\-x]?([a-h][1-8])(=?[nbrqkNBRQK])?[\+#]?\Z")
 
 
     def __init__(self):
@@ -113,9 +116,12 @@ class Board():
                     return
 
                 if self.moveMode == 'uci':
-                    fromLoc, toLoc, modifier = convertUCI(fromLoc, team)
+                    fromLoc, toLoc, modifier = self.convertUCI(fromLoc, team)
                 elif self.moveMode == 'san':
-                    fromLoc, toLoc, modifier = convertSAN(fromLoc, team)
+                    fromLoc, toLoc, modifier = self.convertSAN(fromLoc, team)
+                    if not (fromLoc or toLoc or modifier):
+                        print("Unable to resolve move input.")
+                        return
 
             else:
                 print("Improper parameters.")
@@ -307,12 +313,45 @@ class Board():
             return (Location(move[0:2]), Location(move[2:4]), move[-1])
 
     def convertSAN(self, move, team):
-        if move == 'O-O' or move == '0-0':
+        move = move.lower()
+        if move == 'o-o' or move == '0-0':
             return (Location(5, 1 if team == Team.WHITE else 8), Location(7, 1 if team == Team.WHITE else 8))
-        if move == 'O-O-O' or move == '0-0-0':
+        if move == 'o-o-o' or move == '0-0-0':
             return (Location(5, 1 if team == Team.WHITE else 8), Location(3, 1 if team == Team.WHITE else 8))
-        if len(move) == 2:
-            for piece in self.getPieces(team):
+
+        match = self.SAN_REGEX.match(move)
+
+        #catch match failures
+        if not match:
+            return (False, False, False)
+
+        # Get target square.
+        toLoc = Location(match.group(4))
+
+        # Get the promotion piece type.
+        p = match.group(5)
+
+        # Filter by original square.
+        if match.group(2) and match.group(3):
+            fromLoc = Location(match.group(2)+match.group(3))
+            return (fromLoc, toLoc, p)
+
+        # Filter by piece type.
+        pieces = []
+        type = PieceType.fromString(match.group(1)) if match.group(1) else PieceType.PAWN
+        for piece in self.getPieces(team):
+            if not match.group(2) or piece.x == Location.rows.index(match.group(2))+1:
+                if not match.group(3) or piece.y == int(match.group(3)):
+                    if piece.type == type:
+                        if toLoc in piece.getLegalMoves(mode='loc'):
+                            pieces.append(piece)
+
+        if len(pieces) == 1:
+            return (pieces[0].loc, toLoc, p)
+        else:
+            return (False, False, False)
+
+
 
     def canKCastle(self, team):
         king = self.getKing(team)

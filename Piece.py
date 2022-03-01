@@ -190,6 +190,22 @@ class PieceType(Enum):
         else:
             return 'K'
 
+    @staticmethod
+    def fromString(s):
+        s = s.upper()
+        if s == 'P':
+            return PieceType.PAWN
+        elif s == 'N':
+            return PieceType.KNIGHT
+        elif s == 'B':
+            return PieceType.BISHOP
+        elif s == 'R':
+            return PieceType.ROOK
+        elif s == 'Q':
+            return PieceType.QUEEN
+        else:
+            return PieceType.KING
+
     @property
     def moveIdentity(self):
         if self.name == "PAWN":
