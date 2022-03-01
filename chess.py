@@ -2,16 +2,18 @@
 # imports my other  classes
 from Location import Location
 from Board import Board
+from Piece import Piece, PieceType, Team
 
-# creates the board object that is the source of the game
-chess = Board()
-# outputs it to console (i added __str__ functions to print nice)
-print(chess)
-# test move, e4
-chess.movePiece('e2e4')
-# checking results of test move
-print(chess.getPiece('e4').getLegalMoves())
-print(chess.getPiece('b1').getLegalMoves())
-print(chess.getPiece('f1').getLegalMoves())
-print(chess)
+def main():
 
+    chess = Board()
+    print("Let's begin the game.")
+
+    while(not chess.gameOver):
+        print(chess)
+        move = input(f"Enter {chess.getActiveTeam().name}'s move: ")
+        chess.move(move)
+
+
+if __name__ == "__main__":
+    main()

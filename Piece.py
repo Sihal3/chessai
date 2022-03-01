@@ -212,6 +212,9 @@ class Team(Enum):
     WHITE = 0
     BLACK = 1
 
+    def opponent(self):
+        return Team((self.value+1)%2)
+
 class Piece(object):
     type = None
     value = None
@@ -221,16 +224,28 @@ class Piece(object):
     square = None
     board = None
     hasMoved = False
+    taken = False
+    en_passantable = False
 
     def __str__(self):
-        return self.type.toString()
+        s = ''
+        if(self.color == Team.WHITE):
+            s += '\033[31m'
+        else:
+            s += '\033[34m'
+        s += self.type.toString()
+        s += '\033[m'
+        return s
 
     def move(self, loc: Location):
         self.square = self.board.getSquare(loc)
         self.loc = loc
         self.x = self.square.x
         self.y = self.square.y
-        self.hasMoved = True
+
+    def take(self):
+        taken = True
+        turnTaken = self.board.turn
 
     @property
     def forwardSquare(self):
@@ -263,7 +278,13 @@ def pinit (self, type: PieceType, color: Team, loc: Location, board: Board):
         self.x = self.square.x
         self.y = self.square.y
 
-def getLegalMoves (self):
+# checks if square can be moved to, in that square is either empty or takeable.
+def openLoc(self, loc):
+    if (not self.board.isOccupied(loc) or self.board.getPiece(loc).isOpponent(self)):
+        return True
+    return False
+
+def getAttackingMoves(self):
     moveList = []
     if self.type == PieceType.PAWN:
         if self.color == Team.WHITE:
@@ -271,48 +292,159 @@ def getLegalMoves (self):
         else:
             forward = -1
 
-        if(not self.forwardSquare.isOccupied()):
-            moveList.append(self.forwardLoc.toArr())
-            if(not self.hasMoved and not self.board.isOccupied(self.x, self.y+forward*2)):
-                moveList.append([self.x, self.y+(forward*2)])
-        for loc in [Location(self.x+1, self.y+forward), Location(self.x-1, self.y+forward)]:
-            if(self.board.isOccupied(loc) and self.board.getPiece(loc).isOpponent(self)):
-                moveList.append(loc.toArr())
+        for loc in [Location(self.x + 1, self.y + forward), Location(self.x - 1, self.y + forward)]:
+            if (loc.isOnBoard()):
+                moveList.append(loc)
 
     elif self.type == PieceType.KNIGHT:
         for move in self.type.moves():
-            loc = Location(self.x+move[0], self.y+move[1])
-            if(loc.isOnBoard() and not self.board.isOccupied(loc)):
-                moveList.append(loc.toArr())
-            elif(loc.isOnBoard() and self.board.isOccupied(loc) and self.board.getPiece(loc).isOpponent(self)):
-                moveList.append(loc.toArr())
+            loc = Location(self.x + move[0], self.y + move[1])
+            if loc.isOnBoard():
+                moveList.append(loc)
 
     elif self.type == PieceType.BISHOP:
         # to the right
-        for i in [1,2,3,4]:
-            for x in range(1,8):
+        for i in [1, 2, 3, 4]:
+            for x in range(1, 8):
                 if i == 1:
-                    loc = Location(self.x+x, self.y+x)
+                    loc = Location(self.x + x, self.y + x)
                 elif i == 2:
-                    loc = Location(self.x - x, self.y+x)
+                    loc = Location(self.x - x, self.y + x)
                 elif i == 3:
-                    loc = Location(self.x+x, self.y-x)
+                    loc = Location(self.x + x, self.y - x)
                 else:
-                    loc = Location(self.x-x, self.y - x)
+                    loc = Location(self.x - x, self.y - x)
 
                 if not loc.isOnBoard():
                     break
                 if self.board.isOccupied(loc):
-                    if self.board.getPiece(loc).isOpponent(self):
-                        moveList.append(loc.toArr())
+                    moveList.append(loc)
                     break
-                moveList.append(loc.toArr())
+                moveList.append(loc)
 
+    elif self.type == PieceType.ROOK:
+        for i in [1, 2, 3, 4]:
+            for x in range(1, 8):
+                if i == 1:
+                    loc = Location(self.x + x, self.y)
+                elif i == 2:
+                    loc = Location(self.x - x, self.y)
+                elif i == 3:
+                    loc = Location(self.x, self.y + x)
+                else:
+                    loc = Location(self.x, self.y - x)
+
+                if not loc.isOnBoard():
+                    break
+                if self.board.isOccupied(loc):
+                    moveList.append(loc)
+                    break
+                moveList.append(loc)
+
+    elif self.type == PieceType.QUEEN:
+        for i in range(1, 9):
+            for x in range(1, 8):
+                if i == 1:
+                    loc = Location(self.x + x, self.y)
+                elif i == 2:
+                    loc = Location(self.x - x, self.y)
+                elif i == 3:
+                    loc = Location(self.x, self.y + x)
+                elif i == 4:
+                    loc = Location(self.x, self.y - x)
+                elif i == 5:
+                    loc = Location(self.x + x, self.y + x)
+                elif i == 6:
+                    loc = Location(self.x - x, self.y + x)
+                elif i == 7:
+                    loc = Location(self.x + x, self.y - x)
+                else:
+                    loc = Location(self.x - x, self.y - x)
+
+                if not loc.isOnBoard():
+                    break
+                if self.board.isOccupied(loc):
+                    moveList.append(loc)
+                    break
+                moveList.append(loc)
+
+    else:
+        for move in self.type.moves():
+            loc = Location(self.x + move[0], self.y + move[1])
+            if (loc.isOnBoard()):
+                moveList.append(loc)
 
     return moveList
 
+def getLegalMoves(self, mode='str'):
+    moveList = []
+    if self.type == PieceType.PAWN:
+        if self.color == Team.WHITE:
+            forward = 1
+        else:
+            forward = -1
 
+        if(self.forwardSquare.isOnBoard() and not self.forwardSquare.isOccupied()):
+            moveList.append(self.forwardLoc)
+            loc = Location(self.x, self.y+forward*2)
+            if(loc.isOnBoard() and not self.hasMoved and not self.board.isOccupied(loc)):
+                moveList.append(loc)
+        for loc in self.getAttackingMoves():
+            if(self.board.isOccupied(loc) and self.board.getPiece(loc).isOpponent(self)):
+                moveList.append(loc)
 
+            # check for en passant
+            eploc = Location(loc.x, loc.y-forward)
+            if self.board.isOccupied(eploc) and self.board.getPiece(eploc).isOpponent(self) and self.board.getPiece(eploc).en_passantable:
+                moveList.append(loc)
+
+    elif self.type == PieceType.KING:
+        for move in self.getAttackingMoves():
+            if self.openLoc(move):
+                if not self.board.underAttack(move, self.color):
+                    moveList.append(move)
+
+        # castling
+        if self.board.canKCastle(self.color):
+            moveList.append(Location(7,self.y))
+        if self.board.canQCastle(self.color):
+            moveList.append(Location(3,self.y))
+
+    else:
+        for move in self.getAttackingMoves():
+            if self.openLoc(move):
+                moveList.append(move)
+
+    moveList = self.board.removeFaults(moveList, self.loc, self.color)
+
+    if mode == 'loc':
+        return moveList
+    elif mode == 'str':
+        myloc = self.loc.toNotation()
+        return [str(myloc+loc.toNotation()) for loc in moveList]
+    elif mode == 'arr':
+        [[loc.x, loc.y] for loc in moveList]
+    else:
+        return None
+
+def convertType(self, l):
+    if l == 'Q':
+        self.type = PieceType.QUEEN
+        return True
+    elif l == 'R':
+        self.type = PieceType.ROOK
+        return True
+    elif l == 'B':
+        self.type = PieceType.BISHOP
+        return True
+    elif l == 'N':
+        self.type = PieceType.KNIGHT
+        return True
+    else:
+        return False
 
 Piece.__init__ = pinit
 Piece.getLegalMoves = getLegalMoves
+Piece.openLoc = openLoc
+Piece.getAttackingMoves = getAttackingMoves
+Piece.convertType = convertType
