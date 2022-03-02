@@ -7,6 +7,7 @@ import io
      2. Add window sound
      3. Add animations
      4. Add info bar + flip button.
+     5. Multiple piece styles
 """
 import pygame
 from Board import Board
@@ -23,6 +24,7 @@ YELLOW = (247,235,118, 150)
 SPRITES = {}
 selectedLoc = None
 pieceStyle = 'frugale'
+autoQueen = False
 
 def main():
     global BOARD_SIZE
@@ -40,6 +42,7 @@ def main():
     # Run until the user asks to quit
     running = True
     visualDelta = True
+    move_return = None
 
     while running:
 
@@ -60,16 +63,18 @@ def main():
                 screen = screen_init()
                 visualDelta = True
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                visualDelta = click(event, board, screen)
+                move_return = click(event, board, screen, move_return)
+                visualDelta = bool(move_return)
+
 
         if visualDelta:
-            render(screen, board)
+            render(screen, board, move_return)
             visualDelta = False
 
     # Done! Time to quit.
     pygame.quit()
 
-def render(screen, board):
+def render(screen, board, move_return):
     # Fill the background with white
     screen.fill((255, 255, 255))
 
@@ -99,6 +104,10 @@ def render(screen, board):
     for piece in board.getPieces('both'):
         screen.blit(SPRITES[('w' if piece.color == Team.WHITE else 'b') + piece.type.toString()], ((piece.x-1)*SQUARE_SIZE, (8-piece.y)*SQUARE_SIZE))
 
+    # draw promoting menu
+    if move_return == 'need_promote':
+        draw_promote(screen, board)
+
     # Flip the display
     pygame.display.flip()
 
@@ -108,7 +117,14 @@ def sprite_gen():
     SPRITES = {}
 
     for s in ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']:
-        SPRITES[s] = svg_load(os.path.join('piece_sprites',pieceStyle, f'{s}.svg'), SQUARE_SIZE).convert_alpha()
+        path = os.path.join('piece_sprites',pieceStyle, f'{s}.')
+        if os.path.exists(path+'svg'):
+            SPRITES[s] = svg_load((path+'svg'), SQUARE_SIZE).convert_alpha()
+        elif os.path.exists(path+'png'):
+            SPRITES[s] = pygame.image.load(path+'png').convert_alpha()
+            SPRITES[s] = pygame.transform.smoothscale(SPRITES[s], (SQUARE_SIZE, SQUARE_SIZE))
+        else:
+            raise FileNotFoundError("Sprites not found.")
 
     # highlights
 
@@ -142,9 +158,19 @@ def svg_load(filename, scale):
     start = svg_string.find('<svg')
     if start > 0:
         if os.name == 'nt':
-            svg_string = svg_string[:start + 4] + f' transform="scale({scale/50})" width="{scale}px" height="{scale}px" ' + svg_string[start + 32:]
-        else:
-            svg_string = svg_string[:start + 4] + f' width="{scale}px" height="{scale}px" ' + svg_string[start + 32:]
+            svg_string = svg_string[:start + 4] + f' transform="scale({scale/50})"' + svg_string[start + 4:]
+
+        windexStart = svg_string.find('width="', start)
+        windexEnd = svg_string.find('"', windexStart+len('width="'))
+        if windexStart > 0 and windexEnd > 0:
+            svg_string = svg_string[:windexStart+len('width="')] + f'{scale}px' + svg_string[windexEnd:]
+
+        hindexStart = svg_string.find('height="', start)
+        hindexEnd = svg_string.find('"', hindexStart+len('height="'))
+        if hindexStart > 0 and hindexEnd > 0:
+            svg_string = svg_string[:hindexStart+len('height="')] + f'{scale}px' + svg_string[hindexEnd:]
+
+
     return pygame.image.load(io.BytesIO(svg_string.encode()))
 
 def screen_init(s=None):
@@ -167,23 +193,54 @@ def screen_init(s=None):
 
     return screen
 
-def click(event, board, screen):
+def click(event, board, screen, move_return):
     global selectedLoc
 
     mouseLoc = Location(event.pos[0]//SQUARE_SIZE+1, 8-event.pos[1]//SQUARE_SIZE)
 
-    if selectedLoc:
-        b = board.move(selectedLoc, mouseLoc)
+    if move_return == 'need_promote':
+        x = (board.getPromotingPawn(board.getActiveTeam()).x)
+        y = (8 if board.getActiveTeam() is Team.WHITE else 4)
+        if mouseLoc.x == x and mouseLoc.y == y:
+            modifier = 'Q'
+        elif mouseLoc.x == x and mouseLoc.y == y-1:
+            modifier = 'R'
+        elif mouseLoc.x == x and mouseLoc.y == y-2:
+            modifier = 'B'
+        elif mouseLoc.x == x and mouseLoc.y == y-3:
+            modifier = 'N'
+        else:
+            modifier = ''
+
         selectedLoc = None
-        if b:
-            return True
+        return board.move(board.getPromotingPawn(board.getActiveTeam()).loc, board.getPromotingPawn(board.getActiveTeam()).loc, modifier=modifier)
+
+    if selectedLoc:
+
+        return_value = board.move(selectedLoc, mouseLoc, modifier=('Q' if autoQueen else None))
+        selectedLoc = None
+        return return_value
 
     if board.getPiece(mouseLoc):
         selectedLoc = mouseLoc
+        return 'highlighted'
     else:
         selectedLoc = None
+        return 'unselected'
 
     return True
+
+def draw_promote(screen, board):
+
+    x = (board.getPromotingPawn(board.getActiveTeam()).x-1)
+    y = (0 if board.getActiveTeam() is Team.WHITE else 4)
+    pygame.draw.rect(screen, (230,230,230),
+                     (x * SQUARE_SIZE, y * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE*4), border_radius=SQUARE_SIZE//10)
+
+    for i, piece in enumerate(['Q','R','B','N']):
+        screen.blit(SPRITES[('w' if board.getActiveTeam() is Team.WHITE else 'b') + piece],
+                (x * SQUARE_SIZE, (y+i) * SQUARE_SIZE))
+
 
 if __name__ == "__main__":
     main()

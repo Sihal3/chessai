@@ -400,7 +400,7 @@ def getLegalMoves(self, mode='str'):
         else:
             forward = -1
 
-        if(self.forwardSquare.isOnBoard() and not self.forwardSquare.isOccupied()):
+        if(self.forwardSquare and self.forwardSquare.isOnBoard() and not self.forwardSquare.isOccupied()):
             moveList.append(self.forwardLoc)
             loc = Location(self.x, self.y+forward*2)
             if(loc.isOnBoard() and not self.hasMoved and not self.board.isOccupied(loc)):

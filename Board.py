@@ -18,6 +18,7 @@ class Board():
     moveMode = 'san'
     takenPieces = []
     timeSincePawnMove = 0
+    needPromote = False
 
     SAN_REGEX = re.compile(r"^([NBKRQ])?([a-h])?([1-8])?[\-x]?([a-h][1-8])(=?[nbrqkNBRQK])?[\+#]?\Z")
 
@@ -97,7 +98,8 @@ class Board():
                 b += str(self.getSquare(Location(j,i)))
         return b
 
-    def move(self, fromLoc: Location = None, toLoc: Location = None):
+    def move(self, fromLoc: Location = None, toLoc: Location = None, modifier=None):
+
         if(not self.gameOver):
             team = self.getActiveTeam()
 
@@ -109,11 +111,14 @@ class Board():
                 if fromLoc == 'draw':
                     print("Draw accepted.")
                     self.gameOver = True
-                    return True
+                    return '0.5-0.5'
                 if fromLoc == 'resign':
                     print("You resigned.")
                     self.gameOver = True
-                    return True
+                    if self.getActiveTeam() is Team.WHITE:
+                        return '0-1'
+                    else:
+                        return '1-0'
 
                 if self.moveMode == 'uci':
                     fromLoc, toLoc, modifier = self.convertUCI(fromLoc, team)
@@ -126,30 +131,44 @@ class Board():
             else:
                 print("Improper parameters.")
 
-            if (fromLoc.toNotation() + toLoc.toNotation()) in self.getLegalMoves(team):
+            if self.needPromote or (fromLoc.toNotation() + toLoc.toNotation()) in self.getLegalMoves(team):
                 piece = self.getPiece(fromLoc)
-                takenPiece = self.getPiece(toLoc)
-                self._move(fromLoc, toLoc)
-                piece.hasMoved = True
-                self.moveLog.append(fromLoc.toNotation() + toLoc.toNotation())
-                if takenPiece is not None:
-                    takenPiece.take()
-                    self.timeSincePawnMove = 0
-                    self.takenPieces.append(takenPiece)
 
-                # castling, moving the rook now
-                if piece.type == PieceType.KING and fromLoc.dSquaredTo(toLoc) > 2:
-                    if toLoc.x == 7:
-                        self._move(Location(8,piece.y), Location(6,piece.y))
-                    elif toLoc.x == 3:
-                        self._move(Location(1,piece.y), Location(4,piece.y))
-                    else:
-                        print("ERROR, I thought this was castling...")
+                if not self.needPromote:
+                    takenPiece = self.getPiece(toLoc)
+                    self._move(fromLoc, toLoc)
+                    piece.hasMoved = True
+                    self.moveLog.append(fromLoc.toNotation() + toLoc.toNotation()+ (modifier if modifier else ''))
+                    return_value = 'moved'
+                    if takenPiece is not None:
+                        takenPiece.take()
+                        self.timeSincePawnMove = 0
+                        self.takenPieces.append(takenPiece)
+                        return_value = 'captured'
+
+                    # castling, moving the rook now
+                    if piece.type == PieceType.KING and fromLoc.dSquaredTo(toLoc) > 2:
+                        if toLoc.x == 7:
+                            self._move(Location(8,piece.y), Location(6,piece.y))
+                        elif toLoc.x == 3:
+                            self._move(Location(1,piece.y), Location(4,piece.y))
+                        else:
+                            print("ERROR, I thought this was castling...")
+                        return_value = 'castled'
 
                 # promoting
+                if self.needPromote:
+                    piece = self.getPromotingPawn(team)
                 if piece.type == PieceType.PAWN and piece.y % 7 == 1:  # if on the final row and a pawn
-                    while not piece.convertType(move.upper()):
-                        move = input("Invalid promotion. Re-enter character of piece type: ").upper()
+                    if modifier and piece.convertType(modifier.upper()):
+                        return_value = 'promoted'
+                        if self.needPromote:
+                            self.moveLog[-1] = self.moveLog[-1]+modifier
+                        self.needPromote = False
+                    else:
+                        print("Promotion not specified. Please input in next move, ex. e8e8Q.")
+                        self.needPromote = True
+                        return 'need_promote'
 
                 # 50 move rule
                 if piece.type == PieceType.PAWN:
@@ -169,6 +188,7 @@ class Board():
                         takenPiece.take()
                         self.timeSincePawnMove = 0
                         self.takenPieces.append(takenPiece)
+                        return_value = 'capturing'
 
                 # three-fold-repitition
                 if self.turn%2 == 1:
@@ -184,25 +204,28 @@ class Board():
                 if (self.inCheck(team.opponent()) and not self.getLegalMoves(team.opponent())):
                     print("And that's mate. Good game.")
                     self.gameOver = True
-                    return True
+                    if self.getActiveTeam() is Team.WHITE:
+                        return '1-0'
+                    else:
+                        return '0-1'
                 # stalemate
                 elif (not self.getLegalMoves(team.opponent())):
                     print("And that's stalement. A draw.")
                     self.gameOver = True
-                    return True
+                    return '0.5-0.5'
                 # 50 move rule
                 if self.timeSincePawnMove > 99:
                     print("By the 50-move-rule, this is a draw.")
                     self.gameOver = True
-                    return True
+                    return '0.5-0.5'
                 # three-fold repitition
                 for board in self.pastBoards:
                     if self.pastBoards.count(board) > 2:
                         print("Three-Fold Repetition has occurred, this match is a draw.")
                         self.gameOver = True
-                        return True
+                        return '0.5-0.5'
 
-                return True
+                return return_value
             else:
                 print("Illegal Move. Try again.")
                 return False
@@ -270,6 +293,9 @@ class Board():
             team = self.getActiveTeam()
         else:
             team = t
+
+        if self.needPromote:
+            return [self.getPromotingPawn(team).loc.toNotation()+self.getPromotingPawn(team).loc.toNotation()]
 
         movelist = []
         for piece in self.getPieces(team):
@@ -409,4 +435,8 @@ class Board():
 
         return True
 
+    def getPromotingPawn(self, team):
+        for piece in self.getPieces(team):
+            if piece.type == PieceType.PAWN and piece.y % 7 == 1:
+                return piece
 
