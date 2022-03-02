@@ -19,7 +19,7 @@ class Board():
     takenPieces = []
     timeSincePawnMove = 0
 
-    SAN_REGEX = re.compile(r"^([nbkrqNBKRQ])?([a-h])?([1-8])?[\-x]?([a-h][1-8])(=?[nbrqkNBRQK])?[\+#]?\Z")
+    SAN_REGEX = re.compile(r"^([NBKRQ])?([a-h])?([1-8])?[\-x]?([a-h][1-8])(=?[nbrqkNBRQK])?[\+#]?\Z")
 
 
     def __init__(self):
@@ -119,8 +119,8 @@ class Board():
                     fromLoc, toLoc, modifier = self.convertUCI(fromLoc, team)
                 elif self.moveMode == 'san':
                     fromLoc, toLoc, modifier = self.convertSAN(fromLoc, team)
-                    if not (fromLoc or toLoc or modifier):
-                        print("Unable to resolve move input.")
+                    if not (toLoc):
+                        print(f'{fromLoc} Move invalid, please try again.')
                         return
 
             else:
@@ -276,10 +276,16 @@ class Board():
     def getPieces(self, team):
         # find king
         pieces = []
-        for row in self.board:
-            for square in row:
-                if square.getPiece() is not None:
-                    if square.getPiece().color is team:
+        if isinstance(team, Team):
+            for row in self.board:
+                for square in row:
+                    if square.getPiece() is not None:
+                        if square.getPiece().color is team:
+                            pieces.append(square.getPiece())
+        elif team == 'both':
+            for row in self.board:
+                for square in row:
+                    if square.getPiece() is not None:
                         pieces.append(square.getPiece())
         return pieces
 
@@ -313,17 +319,16 @@ class Board():
             return (Location(move[0:2]), Location(move[2:4]), move[-1])
 
     def convertSAN(self, move, team):
-        move = move.lower()
-        if move == 'o-o' or move == '0-0':
-            return (Location(5, 1 if team == Team.WHITE else 8), Location(7, 1 if team == Team.WHITE else 8))
-        if move == 'o-o-o' or move == '0-0-0':
-            return (Location(5, 1 if team == Team.WHITE else 8), Location(3, 1 if team == Team.WHITE else 8))
+        if move in ['o-o', 'O-O', '0-0']:
+            return (Location(5, 1 if team == Team.WHITE else 8), Location(7, 1 if team == Team.WHITE else 8),'')
+        if move in ['o-o-o', 'O-O-O', '0-0-0']:
+            return (Location(5, 1 if team == Team.WHITE else 8), Location(3, 1 if team == Team.WHITE else 8),'')
 
         match = self.SAN_REGEX.match(move)
 
         #catch match failures
         if not match:
-            return (False, False, False)
+            return ("Unable to match input.", False, False)
 
         # Get target square.
         toLoc = Location(match.group(4))
@@ -348,8 +353,10 @@ class Board():
 
         if len(pieces) == 1:
             return (pieces[0].loc, toLoc, p)
-        else:
-            return (False, False, False)
+        elif len(pieces) > 1:
+            return ('Ambiguity detected. Please add more specificity on piece origin (rank or file).', False, False)
+        elif len(pieces) < 1:
+            return ("That is not a legal move. Please try again.", False, False)
 
 
 

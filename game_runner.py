@@ -1,13 +1,15 @@
 
-# imports my other  classes
+# imports my other classes
 from Location import Location
 from Board import Board
 from Piece import Piece, PieceType, Team
+import time
 
 def main():
 
     chess = Board()
     print("Let's begin the game.")
+
 
     while(not chess.gameOver):
         print(chess)
