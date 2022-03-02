@@ -126,6 +126,8 @@ def sprite_gen():
     SPRITES['tH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
     SPRITES['tH'].fill(GREEN)
     pygame.draw.circle(SPRITES['tH'], (0, 0, 0, 0), (SQUARE_SIZE/2, SQUARE_SIZE/2), SQUARE_SIZE/1.8)
+    #pygame.draw.circle(SPRITES['tH'], GREEN, (SQUARE_SIZE/2, SQUARE_SIZE/2), SQUARE_SIZE/2)
+    #pygame.draw.circle(SPRITES['tH'], (0, 0, 0, 0), (SQUARE_SIZE/2, SQUARE_SIZE/2), SQUARE_SIZE/2.7)
     SPRITES['tH'].convert_alpha()
 
     # pastMoveHighlight
@@ -139,8 +141,10 @@ def svg_load(filename, scale):
     svg_string = open(filename, "rt").read()
     start = svg_string.find('<svg')
     if start > 0:
-        #svg_string = svg_string[:start+4] + f' width="{scale}px" height="{scale}px" ' + svg_string[start+32:]
-        svg_string = svg_string[:start + 4] + f' transform="scale({scale/50})" width="{scale}px" height="{scale}px" ' + svg_string[start + 32:]
+        if os.name == 'nt':
+            svg_string = svg_string[:start + 4] + f' transform="scale({scale/50})" width="{scale}px" height="{scale}px" ' + svg_string[start + 32:]
+        else:
+            svg_string = svg_string[:start + 4] + f' width="{scale}px" height="{scale}px" ' + svg_string[start + 32:]
     return pygame.image.load(io.BytesIO(svg_string.encode()))
 
 def screen_init(s=None):
