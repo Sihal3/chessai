@@ -109,11 +109,11 @@ class Board():
                 if fromLoc == 'draw':
                     print("Draw accepted.")
                     self.gameOver = True
-                    return
+                    return True
                 if fromLoc == 'resign':
                     print("You resigned.")
                     self.gameOver = True
-                    return
+                    return True
 
                 if self.moveMode == 'uci':
                     fromLoc, toLoc, modifier = self.convertUCI(fromLoc, team)
@@ -121,7 +121,7 @@ class Board():
                     fromLoc, toLoc, modifier = self.convertSAN(fromLoc, team)
                     if not (toLoc):
                         print(f'{fromLoc} Move invalid, please try again.')
-                        return
+                        return False
 
             else:
                 print("Improper parameters.")
@@ -177,34 +177,38 @@ class Board():
 
                 self.timeSincePawnMove = self.timeSincePawnMove + 1
                 self.turn = self.turn + 1
+
+                # GAME END STATES
+
+                # checkmate
+                if (self.inCheck(team.opponent()) and not self.getLegalMoves(team.opponent())):
+                    print("And that's mate. Good game.")
+                    self.gameOver = True
+                    return True
+                # stalemate
+                elif (not self.getLegalMoves(team.opponent())):
+                    print("And that's stalement. A draw.")
+                    self.gameOver = True
+                    return True
+                # 50 move rule
+                if self.timeSincePawnMove > 99:
+                    print("By the 50-move-rule, this is a draw.")
+                    self.gameOver = True
+                    return True
+                # three-fold repitition
+                for board in self.pastBoards:
+                    if self.pastBoards.count(board) > 2:
+                        print("Three-Fold Repetition has occurred, this match is a draw.")
+                        self.gameOver = True
+                        return True
+
+                return True
             else:
                 print("Illegal Move. Try again.")
-
-            # GAME END STATES
-
-            # checkmate
-            if(self.inCheck(team.opponent()) and not self.getLegalMoves(team.opponent())):
-                print("And that's mate. Good game.")
-                self.gameOver = True
-                return
-            # stalemate
-            elif(not self.getLegalMoves(team.opponent())):
-                print("And that's stalement. A draw.")
-                self.gameOver = True
-                return
-            # 50 move rule
-            if self.timeSincePawnMove > 99:
-                print("By the 50-move-rule, this is a draw.")
-                self.gameOver = True
-                return
-            # three-fold repitition
-            for board in self.pastBoards:
-                if self.pastBoards.count(board) > 2:
-                    print("Three-Fold Repetition has occurred, this match is a draw.")
-                    self.gameOver = True
-                    return
+                return False
         else:
             print("Game is Over.")
+            return False
 
 
     def _move(self, fromLoc: Location, toLoc: Location):
@@ -308,7 +312,7 @@ class Board():
 
         return newMoveList
 
-    def convertUCI(self, move, team):
+    def convertUCI(self, move, team=None):
         if move == 'O-O' or move == '0-0':
             return (Location(5, 1 if team == Team.WHITE else 8), Location(7, 1 if team == Team.WHITE else 8))
         if move == 'O-O-O' or move == '0-0-0':
@@ -318,13 +322,13 @@ class Board():
         elif len(move) == 5:
             return (Location(move[0:2]), Location(move[2:4]), move[-1])
 
-    def convertSAN(self, move, team):
+    def convertSAN(self, move, team=None):
         if move in ['o-o', 'O-O', '0-0']:
             return (Location(5, 1 if team == Team.WHITE else 8), Location(7, 1 if team == Team.WHITE else 8),'')
         if move in ['o-o-o', 'O-O-O', '0-0-0']:
             return (Location(5, 1 if team == Team.WHITE else 8), Location(3, 1 if team == Team.WHITE else 8),'')
 
-        match = self.SAN_REGEX.match(move)
+        match = self.SAN_REGEX.match(move) # a genius RegEx expression I found online that matches all move types
 
         #catch match failures
         if not match:
@@ -356,7 +360,7 @@ class Board():
         elif len(pieces) > 1:
             return ('Ambiguity detected. Please add more specificity on piece origin (rank or file).', False, False)
         elif len(pieces) < 1:
-            return ("That is not a legal move. Please try again.", False, False)
+            return ("That is not a legal move.", False, False)
 
 
 
