@@ -1,7 +1,13 @@
 import os
 import io
 
-
+"""
+     TODO 
+     1. Fix Promotion
+     2. Add window sound
+     3. Add animations
+     4. Add info bar + flip button.
+"""
 import pygame
 from Board import Board
 from Piece import Piece, PieceType, Team
