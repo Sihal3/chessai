@@ -22,6 +22,7 @@ GREEN = (45, 138, 44, 150)
 YELLOW = (247,235,118, 150)
 SPRITES = {}
 selectedLoc = None
+pieceStyle = 'frugale'
 
 def main():
     global BOARD_SIZE
@@ -107,8 +108,7 @@ def sprite_gen():
     SPRITES = {}
 
     for s in ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']:
-        SPRITES[s] = svg_load(os.path.join('frugale', f'{s}.svg'), SQUARE_SIZE).convert_alpha()
-        print(SPRITES[s].get_size())
+        SPRITES[s] = svg_load(os.path.join('piece_sprites',pieceStyle, f'{s}.svg'), SQUARE_SIZE).convert_alpha()
 
     # highlights
 
