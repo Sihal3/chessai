@@ -18,8 +18,8 @@ BOARD_SIZE = 704
 SQUARE_SIZE = (BOARD_SIZE // 8)
 WHITE = (233, 211, 176)
 BLACK = (180, 136, 99)
-GREEN = (45, 138, 44)
-YELLOW = (247,235,118)
+GREEN = (45, 138, 44, 150)
+YELLOW = (247,235,118, 150)
 SPRITES = {}
 selectedLoc = None
 
@@ -108,31 +108,29 @@ def sprite_gen():
 
     for s in ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']:
         SPRITES[s] = svg_load(os.path.join('frugale', f'{s}.svg'), SQUARE_SIZE).convert_alpha()
+        print(SPRITES[s].get_size())
 
     # highlights
 
     # selectedSquareHighlight
-    SPRITES['sH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE))
+    SPRITES['sH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
     SPRITES['sH'].fill(GREEN)
-    SPRITES['sH'].set_alpha(150)
     SPRITES['sH'].convert_alpha()
 
     # possibleMovesCircleHighlight
-    SPRITES['cH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE))
-    SPRITES['cH'].set_alpha(150)
+    SPRITES['cH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
     pygame.draw.circle(SPRITES['cH'], GREEN, (SQUARE_SIZE/2, SQUARE_SIZE/2), SQUARE_SIZE/6)
     SPRITES['cH'].convert_alpha()
 
     # possibleTakesCircleHighlight
     SPRITES['tH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
-    SPRITES['tH'].fill((GREEN[0], GREEN[1], GREEN[2], 150))
+    SPRITES['tH'].fill(GREEN)
     pygame.draw.circle(SPRITES['tH'], (0, 0, 0, 0), (SQUARE_SIZE/2, SQUARE_SIZE/2), SQUARE_SIZE/1.8)
     SPRITES['tH'].convert_alpha()
 
     # pastMoveHighlight
-    SPRITES['pH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE))
+    SPRITES['pH'] = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
     SPRITES['pH'].fill(YELLOW)
-    SPRITES['pH'].set_alpha(150)
     SPRITES['pH'].convert_alpha()
 
 
@@ -141,7 +139,8 @@ def svg_load(filename, scale):
     svg_string = open(filename, "rt").read()
     start = svg_string.find('<svg')
     if start > 0:
-        svg_string = svg_string[:start+4] + f' width="{scale}px" height="{scale}px" ' + svg_string[start+32:]
+        #svg_string = svg_string[:start+4] + f' width="{scale}px" height="{scale}px" ' + svg_string[start+32:]
+        svg_string = svg_string[:start + 4] + f' transform="scale({scale/50})" width="{scale}px" height="{scale}px" ' + svg_string[start + 32:]
     return pygame.image.load(io.BytesIO(svg_string.encode()))
 
 def screen_init(s=None):
@@ -181,8 +180,6 @@ def click(event, board, screen):
         selectedLoc = None
 
     return True
-
-
 
 if __name__ == "__main__":
     main()
