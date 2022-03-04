@@ -310,13 +310,13 @@ def getAttackingMoves(self):
 
         for loc in [Location(self.x + 1, self.y + forward), Location(self.x - 1, self.y + forward)]:
             if (loc.isOnBoard()):
-                moveList.append(loc)
+                moveList.append((self.loc, loc, ''))
 
     elif self.type == PieceType.KNIGHT:
         for move in self.type.moves():
             loc = Location(self.x + move[0], self.y + move[1])
             if loc.isOnBoard():
-                moveList.append(loc)
+                moveList.append((self.loc, loc, ''))
 
     elif self.type == PieceType.BISHOP:
         # to the right
@@ -334,9 +334,9 @@ def getAttackingMoves(self):
                 if not loc.isOnBoard():
                     break
                 if self.board.isOccupied(loc):
-                    moveList.append(loc)
+                    moveList.append((self.loc, loc, ''))
                     break
-                moveList.append(loc)
+                moveList.append((self.loc, loc, ''))
 
     elif self.type == PieceType.ROOK:
         for i in [1, 2, 3, 4]:
@@ -353,9 +353,9 @@ def getAttackingMoves(self):
                 if not loc.isOnBoard():
                     break
                 if self.board.isOccupied(loc):
-                    moveList.append(loc)
+                    moveList.append((self.loc, loc, ''))
                     break
-                moveList.append(loc)
+                moveList.append((self.loc, loc, ''))
 
     elif self.type == PieceType.QUEEN:
         for i in range(1, 9):
@@ -380,15 +380,15 @@ def getAttackingMoves(self):
                 if not loc.isOnBoard():
                     break
                 if self.board.isOccupied(loc):
-                    moveList.append(loc)
+                    moveList.append((self.loc, loc, ''))
                     break
-                moveList.append(loc)
+                moveList.append((self.loc, loc, ''))
 
     else:
         for move in self.type.moves():
             loc = Location(self.x + move[0], self.y + move[1])
             if (loc.isOnBoard()):
-                moveList.append(loc)
+                moveList.append((self.loc, loc, ''))
 
     return moveList
 
@@ -401,45 +401,52 @@ def getLegalMoves(self, mode='str'):
             forward = -1
 
         if(self.forwardSquare and self.forwardSquare.isOnBoard() and not self.forwardSquare.isOccupied()):
-            moveList.append(self.forwardLoc)
+
+            if (self.forwardSquare.y in [1,8]):
+                moveList.append((self.loc, self.forwardLoc, 'q'))
+                moveList.append((self.loc, self.forwardLoc, 'r'))
+                moveList.append((self.loc, self.forwardLoc, 'b'))
+                moveList.append((self.loc, self.forwardLoc, 'n'))
+            else:
+                moveList.append((self.loc, self.forwardLoc, ''))
+
             loc = Location(self.x, self.y+forward*2)
             if(loc.isOnBoard() and not self.hasMoved and not self.board.isOccupied(loc)):
-                moveList.append(loc)
-        for loc in self.getAttackingMoves():
-            if(self.board.isOccupied(loc) and self.board.getPiece(loc).isOpponent(self)):
-                moveList.append(loc)
+                moveList.append((self.loc, loc, ''))
+        for locs in self.getAttackingMoves():
+            if(self.board.isOccupied(locs[1]) and self.board.getPiece(locs[1]).isOpponent(self)):
+                moveList.append(locs)
 
             # check for en passant
-            eploc = Location(loc.x, loc.y-forward)
+            eploc = Location(locs[1].x, locs[1].y-forward)
             if self.board.isOccupied(eploc) and self.board.getPiece(eploc).isOpponent(self) and self.board.getPiece(eploc).en_passantable:
-                moveList.append(loc)
+                moveList.append((self.loc, eploc, ''))
 
     elif self.type == PieceType.KING:
         for move in self.getAttackingMoves():
-            if self.openLoc(move):
-                if not self.board.underAttack(move, self.color):
+            if self.openLoc(move[1]):
+                if not self.board.underAttack(move[1], self.color):
                     moveList.append(move)
 
         # castling
         if self.board.canKCastle(self.color):
-            moveList.append(Location(7,self.y))
+            moveList.append((self.loc, Location(7,self.y), ''))
         if self.board.canQCastle(self.color):
-            moveList.append(Location(3,self.y))
+            moveList.append((self.loc, Location(3,self.y), ''))
 
     else:
         for move in self.getAttackingMoves():
-            if self.openLoc(move):
+            if self.openLoc(move[1]):
                 moveList.append(move)
 
-    moveList = self.board.removeFaults(moveList, self.loc, self.color)
+    moveList = self.board.removeFaults(moveList, self.color)
 
     if mode == 'loc':
         return moveList
     elif mode == 'str':
-        myloc = self.loc.toNotation()
-        return [str(myloc+loc.toNotation()) for loc in moveList]
+        return [str(locs[0].toNotation()+locs[1].toNotation())+locs[2] for locs in moveList]
     elif mode == 'arr':
-        [[loc.x, loc.y] for loc in moveList]
+        [[[locs[0].y, locs[0].y],[locs[1].x, locs[1].y]] for locs in moveList]
     else:
         return None
 

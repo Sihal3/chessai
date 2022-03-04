@@ -103,9 +103,11 @@ class Board():
         if(not self.gameOver):
             team = self.getActiveTeam()
 
-            if isinstance(fromLoc, Location):
+            if isinstance(fromLoc, tuple) and not toLoc:
+                fromLoc, toLoc, modifier = fromLoc
+            elif isinstance(fromLoc, Location):
                 pass
-            elif isinstance(fromLoc, str) and toLoc is None:
+            elif isinstance(fromLoc, str) and not toLoc:
 
                 # offering a draw or resigning
                 if fromLoc == 'draw':
@@ -131,7 +133,7 @@ class Board():
             else:
                 print("Improper parameters.")
 
-            if self.needPromote or (fromLoc.toNotation() + toLoc.toNotation()) in self.getLegalMoves(team):
+            if self.needPromote or (fromLoc.toNotation() + toLoc.toNotation()+(modifier if modifier else '')) in self.getLegalMoves(team):
                 piece = self.getPiece(fromLoc)
 
                 if not self.needPromote:
@@ -188,7 +190,7 @@ class Board():
                         takenPiece.take()
                         self.timeSincePawnMove = 0
                         self.takenPieces.append(takenPiece)
-                        return_value = 'capturing'
+                        return_value = 'captured'
 
                 # three-fold-repitition
                 if self.turn%2 == 1:
@@ -199,6 +201,10 @@ class Board():
                 self.turn = self.turn + 1
 
                 # GAME END STATES
+
+                # check
+                if (self.inCheck(team.opponent())):
+                    return_value = 'checked'
 
                 # checkmate
                 if (self.inCheck(team.opponent()) and not self.getLegalMoves(team.opponent())):
@@ -273,7 +279,7 @@ class Board():
                 if square.getPiece() is not None:
                     piece = square.getPiece()
                     if piece.isOpponent(team):
-                        for move in piece.getAttackingMoves():
+                        for _, move, _ in piece.getAttackingMoves():
                             if loc.x == move.x and loc.y == move.y:
                                 return True
         return False
@@ -295,7 +301,14 @@ class Board():
             team = t
 
         if self.needPromote:
-            return [self.getPromotingPawn(team).loc.toNotation()+self.getPromotingPawn(team).loc.toNotation()]
+            pLoc = self.getPromotingPawn(team).loc
+            moveList = [(pLoc, pLoc ,'q'),(pLoc, pLoc ,'r'),(pLoc, pLoc ,'b'),(pLoc, pLoc ,'n')]
+            if mode == 'loc':
+                return moveList
+            elif mode == 'str':
+                return [str(locs[0].toNotation() + locs[1].toNotation())+locs[2] for locs in moveList]
+            elif mode == 'arr':
+                return [[[locs[0].y, locs[0].y], [locs[1].x, locs[1].y]] for locs in moveList]
 
         movelist = []
         for piece in self.getPieces(team):
@@ -322,15 +335,15 @@ class Board():
     def getActiveTeam(self):
         return Team(self.turn%2)
 
-    def removeFaults(self, moveList, fromLoc, team):
+    def removeFaults(self, moveList, team):
         newMoveList = []
-        for toLoc in moveList:
+        for fromLoc, toLoc, m in moveList:
 
             takenPiece = self.getPiece(toLoc)
 
             self._move(fromLoc, toLoc)
             if(not self.inCheck(team)):
-                newMoveList.append(toLoc)
+                newMoveList.append((fromLoc,toLoc,m))
             self._move(toLoc, fromLoc)
 
             if takenPiece is not None:
@@ -378,7 +391,7 @@ class Board():
             if not match.group(2) or piece.x == Location.rows.index(match.group(2))+1:
                 if not match.group(3) or piece.y == int(match.group(3)):
                     if piece.type == type:
-                        if toLoc in piece.getLegalMoves(mode='loc'):
+                        if (piece.loc, toLoc, '') in piece.getLegalMoves(mode='loc') or (piece.loc, toLoc, 'Q') in piece.getLegalMoves(mode='loc'):
                             pieces.append(piece)
 
         if len(pieces) == 1:

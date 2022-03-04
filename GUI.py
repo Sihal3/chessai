@@ -1,52 +1,86 @@
 import os
 import io
-
+import random
 """
      TODO 
-     1. Fix Promotion
-     2. Add window sound
+     1. Fix Promotion. Check.
+     2. Add window sound. Check.
      3. Add animations
-     4. Add info bar + flip button.
-     5. Multiple piece styles
+     4. Add info bar + flip button + resign, restart, draw
+     5. end screen
+     5. Multiple piece styles. On Hold.
 """
 import pygame
 from Board import Board
 from Piece import Piece, PieceType, Team
 from Location import Location
+from Agent import RandomAgent
 
 # Set up the drawing window
 BOARD_SIZE = 704
 SQUARE_SIZE = (BOARD_SIZE // 8)
 WHITE = (233, 211, 176)
 BLACK = (180, 136, 99)
+GRAY = (127,159,159)
 GREEN = (45, 138, 44, 150)
+PURPLE = (164, 164, 205)
 YELLOW = (247,235,118, 150)
+rows = ['a','b','c','d','e','f','g','h']
 SPRITES = {}
+TEXTS = {}
+SOUNDS = {}
 selectedLoc = None
 pieceStyle = 'frugale'
 autoQueen = False
+animating = []  #hold tuples of (piece, startLoc, endLoc)
+orientation = None
+players = ['random','manual'] # [top, bottom]
+agent_delay = (0.5,2)  # around 1 second for AI to respond
+
 
 def main():
     global BOARD_SIZE
     global SQUARE_SIZE
+    global orientation
+    global SOUNDS
 
+    # initialize window
     pygame.init()
     pygame.display.set_caption('Chess() by Nihal')
     pygame.display.set_icon(pygame.image.load('icon.png'))
 
+    # choose board orientation
+    orientation = Team(random.randint(0,1))
+
+    # create screen and clock
     screen = screen_init() # creates screen and also sprites
     clock = pygame.time.Clock()
 
+    # create board object
     board = Board()
+
+    #William the random agent
+    william = RandomAgent(board)
+
+    # import sounds
+    SOUNDS['move'] = pygame.mixer.Sound(os.path.join('sounds', 'move-self.wav'))
+    SOUNDS['take'] = pygame.mixer.Sound(os.path.join('sounds', 'capture.wav'))
+    SOUNDS['castle'] = pygame.mixer.Sound(os.path.join('sounds', 'castle.wav'))
+    SOUNDS['check'] = pygame.mixer.Sound(os.path.join('sounds', 'move-check.wav'))
+    SOUNDS['game_over'] = pygame.mixer.Sound(os.path.join('sounds', 'game-end.wav'))
+
 
     # Run until the user asks to quit
     running = True
     visualDelta = True
     move_return = None
+    since_move=0
+    delay = 0
 
     while running:
 
-        clock.tick(100)
+        #if not animating:
+        dt = clock.tick(60)
 
         # Did the user click the window close button?
         for event in pygame.event.get():
@@ -66,10 +100,26 @@ def main():
                 move_return = click(event, board, screen, move_return)
                 visualDelta = bool(move_return)
 
+        # do random agent
+
+        if getMovingAgent(board) == 'random':
+            if not board.gameOver:
+                since_move += dt
+                if not delay:
+                    delay = random.uniform(agent_delay[0], agent_delay[1]) * 1000
+
+                if since_move > delay:
+                    move = william.getMove()
+                    if move:
+                        move_return = board.move(move)
+                        visualDelta = True
+                        since_move = 0
+                        delay = 0
 
         if visualDelta:
             render(screen, board, move_return)
             visualDelta = False
+
 
     # Done! Time to quit.
     pygame.quit()
@@ -81,32 +131,51 @@ def render(screen, board, move_return):
     # draw squares
     for i in range(8):
         for j in range(8):
-            pygame.draw.rect(screen, BLACK if (i + j) % 2 == 1 else WHITE,
+            pygame.draw.rect(screen, BLACK if (i + j) % 2 == (orientation.value+1)%2 else WHITE,
                                   (i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
+
+    # draw notations
+    for i, rank in enumerate(['a','b','c','d','e','f','g','h']):
+        screen.blit(TEXTS[rank], ((i+1)*SQUARE_SIZE-round(SQUARE_SIZE/7), 7*SQUARE_SIZE+round(SQUARE_SIZE*11/15)))
+    for i in range(1,9):
+        screen.blit(TEXTS[str(i)], (round(SQUARE_SIZE/15), (8-i if orientation is Team.WHITE else i-1) * SQUARE_SIZE))
+
 
     # draw past move highlight
     if board.moveLog:
         fromLoc, toLoc, _ = board.convertSAN(board.moveLog[-1])
-        screen.blit(SPRITES['pH'], ((fromLoc.x - 1) * SQUARE_SIZE, (8 - fromLoc.y) * SQUARE_SIZE))
-        screen.blit(SPRITES['pH'], ((toLoc.x - 1) * SQUARE_SIZE, (8 - toLoc.y) * SQUARE_SIZE))
+        screen.blit(SPRITES['pH'], translateLoc(fromLoc))
+        screen.blit(SPRITES['pH'], translateLoc(toLoc))
 
     # draw selected highlight
     if selectedLoc:
-        screen.blit(SPRITES['sH'], ((selectedLoc.x-1) * SQUARE_SIZE, (8-selectedLoc.y) * SQUARE_SIZE))
+        screen.blit(SPRITES['sH'], translateLoc(selectedLoc))
         if board.getPiece(selectedLoc).color is board.getActiveTeam():
-            for move in board.getPiece(selectedLoc).getLegalMoves(mode='loc'):
-                if board.getPiece(move):
-                    screen.blit(SPRITES['tH'], ((move.x - 1) * SQUARE_SIZE, (8 - move.y) * SQUARE_SIZE))
+            for _, toLoc, _ in board.getPiece(selectedLoc).getLegalMoves(mode='loc'):
+                if board.getPiece(toLoc):
+                    screen.blit(SPRITES['tH'], translateLoc(toLoc))
                 else:
-                    screen.blit(SPRITES['cH'], ((move.x - 1) * SQUARE_SIZE, (8 - move.y) * SQUARE_SIZE))
+                    screen.blit(SPRITES['cH'], translateLoc(toLoc))
 
     # draw pieces
     for piece in board.getPieces('both'):
-        screen.blit(SPRITES[('w' if piece.color == Team.WHITE else 'b') + piece.type.toString()], ((piece.x-1)*SQUARE_SIZE, (8-piece.y)*SQUARE_SIZE))
+        screen.blit(SPRITES[('w' if piece.color == Team.WHITE else 'b') + piece.type.toString()], translateLoc(piece))
 
     # draw promoting menu
     if move_return == 'need_promote':
         draw_promote(screen, board)
+
+    #play sound
+    if move_return in ['moved', 'promoted']:
+        pygame.mixer.Sound.play(SOUNDS['move'])
+    elif move_return == 'captured':
+        pygame.mixer.Sound.play(SOUNDS['take'])
+    elif move_return == 'castled':
+        pygame.mixer.Sound.play(SOUNDS['castle'])
+    elif move_return == 'checked':
+        pygame.mixer.Sound.play(SOUNDS['check'])
+    elif move_return in ['1-0', '0-1', '0.5-0.5']:
+        pygame.mixer.Sound.play(SOUNDS['game_over'])
 
     # Flip the display
     pygame.display.flip()
@@ -151,6 +220,16 @@ def sprite_gen():
     SPRITES['pH'].fill(YELLOW)
     SPRITES['pH'].convert_alpha()
 
+def font_gen():
+    global TEXTS
+
+    # import font
+    font = pygame.font.Font(os.path.join('fonts', 'Segoe UI.ttf'), SQUARE_SIZE//5)
+
+    for i, file in enumerate(rows):
+        TEXTS[file] = font.render(file, True, WHITE if i % 2 == orientation.value else BLACK)
+    for i in range(1,9):
+        TEXTS[str(i)] = font.render(str(i), True, BLACK if i%2==0 else WHITE)
 
 
 def svg_load(filename, scale):
@@ -191,35 +270,50 @@ def screen_init(s=None):
     # load piece sprites
     sprite_gen()
 
+    # font gen
+    font_gen()
+
     return screen
 
 def click(event, board, screen, move_return):
+
+    if event.pos[0] < BOARD_SIZE:
+        return board_click(event, board, screen, move_return)
+
+def board_click(event, board, screen, move_return):
     global selectedLoc
 
-    mouseLoc = Location(event.pos[0]//SQUARE_SIZE+1, 8-event.pos[1]//SQUARE_SIZE)
+    if orientation is Team.WHITE:
+        mouseLoc = Location(event.pos[0]//SQUARE_SIZE+1, 8-event.pos[1]//SQUARE_SIZE)
+    else:
+        mouseLoc = Location(event.pos[0]//SQUARE_SIZE+1, event.pos[1]//SQUARE_SIZE+1)
 
-    if move_return == 'need_promote':
-        x = (board.getPromotingPawn(board.getActiveTeam()).x)
-        y = (8 if board.getActiveTeam() is Team.WHITE else 4)
-        if mouseLoc.x == x and mouseLoc.y == y:
-            modifier = 'Q'
-        elif mouseLoc.x == x and mouseLoc.y == y-1:
-            modifier = 'R'
-        elif mouseLoc.x == x and mouseLoc.y == y-2:
-            modifier = 'B'
-        elif mouseLoc.x == x and mouseLoc.y == y-3:
-            modifier = 'N'
-        else:
-            modifier = ''
+    if getMovingAgent(board) == 'manual':
+        if move_return == 'need_promote':
+            x = (board.getPromotingPawn(board.getActiveTeam()).x)
 
-        selectedLoc = None
-        return board.move(board.getPromotingPawn(board.getActiveTeam()).loc, board.getPromotingPawn(board.getActiveTeam()).loc, modifier=modifier)
+            if mouseLoc.x == x and mouseLoc.y in [1,8]:
+                modifier = 'Q'
+            elif mouseLoc.x == x and mouseLoc.y in [2,7]:
+                modifier = 'R'
+            elif mouseLoc.x == x and mouseLoc.y in [3,6]:
+                modifier = 'B'
+            elif mouseLoc.x == x and mouseLoc.y in [4,5]:
+                modifier = 'N'
+            else:
+                modifier = ''
+
+            selectedLoc = None
+            return board.move(board.getPromotingPawn(board.getActiveTeam()).loc, board.getPromotingPawn(board.getActiveTeam()).loc, modifier=modifier)
 
     if selectedLoc:
 
-        return_value = board.move(selectedLoc, mouseLoc, modifier=('Q' if autoQueen else None))
-        selectedLoc = None
-        return return_value
+        if getMovingAgent(board) == 'manual':
+            return_value = board.move(selectedLoc, mouseLoc, modifier=('Q' if autoQueen else None))
+            selectedLoc = None
+            return return_value
+        else:
+            selectedLoc = None
 
     if board.getPiece(mouseLoc):
         selectedLoc = mouseLoc
@@ -232,15 +326,35 @@ def click(event, board, screen, move_return):
 
 def draw_promote(screen, board):
 
+    mask = pygame.Surface((BOARD_SIZE, BOARD_SIZE), pygame.SRCALPHA)
+    mask.fill((0,0,0,150))
+
+    screen.blit(mask, (0,0))
+
     x = (board.getPromotingPawn(board.getActiveTeam()).x-1)
-    y = (0 if board.getActiveTeam() is Team.WHITE else 4)
-    pygame.draw.rect(screen, (230,230,230),
-                     (x * SQUARE_SIZE, y * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE*4), border_radius=SQUARE_SIZE//10)
+    y = (0 if board.getActiveTeam() is orientation else 4)
+
+    for i in range(4):
+        pygame.draw.rect(screen, PURPLE,
+                     (x * SQUARE_SIZE, (y+i) * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE), border_radius=SQUARE_SIZE//4)
 
     for i, piece in enumerate(['Q','R','B','N']):
         screen.blit(SPRITES[('w' if board.getActiveTeam() is Team.WHITE else 'b') + piece],
-                (x * SQUARE_SIZE, (y+i) * SQUARE_SIZE))
+                (x * SQUARE_SIZE, (i if board.getActiveTeam() is orientation else 7-i) * SQUARE_SIZE))
 
+def translateLoc(loc, y=None):
+    if y:
+        if orientation is Team.WHITE:
+            return ((loc - 1) * SQUARE_SIZE, (8 - y) * SQUARE_SIZE)
+        else:
+            return ((loc - 1) * SQUARE_SIZE, (y - 1) * SQUARE_SIZE)
+    if orientation is Team.WHITE:
+        return ((loc.x - 1) * SQUARE_SIZE, (8 - loc.y) * SQUARE_SIZE)
+    else:
+        return ((loc.x - 1) * SQUARE_SIZE, (loc.y-1) * SQUARE_SIZE)
+
+def getMovingAgent(board):
+    return players[(board.getActiveTeam().value + orientation.value+1) % 2]
 
 if __name__ == "__main__":
     main()
