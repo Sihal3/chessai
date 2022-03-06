@@ -5,10 +5,12 @@ import random
      TODO 
      1. Fix Promotion. Check.
      2. Add window sound. Check.
-     3. Add animations
-     4. Add info bar + flip button + resign, restart, draw
-     5. end screen
-     5. Multiple piece styles. On Hold.
+     3. Add animations. No need.
+     4. Multiple piece styles. No need.
+     5. Add info bar + flip button + resign, restart, draw
+     6. end screen
+     7. Add smarter, yet determninistic agent.
+     8. Go full RL.
 """
 import pygame
 from Board import Board
@@ -18,10 +20,14 @@ from Agent import RandomAgent
 
 # Set up the drawing window
 BOARD_SIZE = 704
+MENU_BAR_SIZE = (BOARD_SIZE // 16)
+MENU_SIZE = (BOARD_SIZE // 3)
+is_menu_open = False
 SQUARE_SIZE = (BOARD_SIZE // 8)
 WHITE = (233, 211, 176)
 BLACK = (180, 136, 99)
-GRAY = (127,159,159)
+GRAY = (61, 58, 55)
+LIGHT_GRAY = (49,46,43, 102)
 GREEN = (45, 138, 44, 150)
 PURPLE = (164, 164, 205)
 YELLOW = (247,235,118, 150)
@@ -35,7 +41,9 @@ autoQueen = False
 animating = []  #hold tuples of (piece, startLoc, endLoc)
 orientation = None
 players = ['random','manual'] # [top, bottom]
-agent_delay = (0.5,2)  # around 1 second for AI to respond
+agent_delay = (0,0)  # around 1 second for AI to respond
+audio = True
+
 
 
 def main():
@@ -53,7 +61,7 @@ def main():
     orientation = Team(random.randint(0,1))
 
     # create screen and clock
-    screen = screen_init() # creates screen and also sprites
+    screen = screen_init()  # creates screen and also sprites
     clock = pygame.time.Clock()
 
     # create board object
@@ -74,7 +82,7 @@ def main():
     running = True
     visualDelta = True
     move_return = None
-    since_move=0
+    since_move = 0
     delay = 0
 
     while running:
@@ -126,7 +134,7 @@ def main():
 
 def render(screen, board, move_return):
     # Fill the background with white
-    screen.fill((255, 255, 255))
+    screen.fill(GRAY)
 
     # draw squares
     for i in range(8):
@@ -166,16 +174,17 @@ def render(screen, board, move_return):
         draw_promote(screen, board)
 
     #play sound
-    if move_return in ['moved', 'promoted']:
-        pygame.mixer.Sound.play(SOUNDS['move'])
-    elif move_return == 'captured':
-        pygame.mixer.Sound.play(SOUNDS['take'])
-    elif move_return == 'castled':
-        pygame.mixer.Sound.play(SOUNDS['castle'])
-    elif move_return == 'checked':
-        pygame.mixer.Sound.play(SOUNDS['check'])
-    elif move_return in ['1-0', '0-1', '0.5-0.5']:
-        pygame.mixer.Sound.play(SOUNDS['game_over'])
+    if audio:
+        if move_return in ['moved', 'promoted']:
+            pygame.mixer.Sound.play(SOUNDS['move'])
+        elif move_return == 'captured':
+            pygame.mixer.Sound.play(SOUNDS['take'])
+        elif move_return == 'castled':
+            pygame.mixer.Sound.play(SOUNDS['castle'])
+        elif move_return == 'checked':
+            pygame.mixer.Sound.play(SOUNDS['check'])
+        elif move_return in ['1-0', '0-1', '0.5-0.5']:
+            pygame.mixer.Sound.play(SOUNDS['game_over'])
 
     # Flip the display
     pygame.display.flip()
@@ -265,7 +274,7 @@ def screen_init(s=None):
     #if s == 'fullscreen':
      #   screen = pygame.display.set_mode([BOARD_SIZE, BOARD_SIZE], pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE | pygame.FULLSCREEN)
     #else:
-    screen = pygame.display.set_mode([BOARD_SIZE, BOARD_SIZE], pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
+    screen = pygame.display.set_mode([BOARD_SIZE+(MENU_SIZE if is_menu_open else MENU_BAR_SIZE), BOARD_SIZE], pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
 
     # load piece sprites
     sprite_gen()
