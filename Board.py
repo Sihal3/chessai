@@ -27,13 +27,16 @@ class Board():
         self.boardInit()
 
     def reset(self):
-        board = None
-        turn = 0
-        moveLog = []
-        pastBoards = []
-        gameOver = False
-        takenPieces = []
-        timeSincePawnMove = 0
+        self.board = None
+        self.turn = 0
+        self.moveLog = []
+        self.pastBoards = []
+        self.gameOver = False
+        self.moveMode = 'san'
+        self.takenPieces = []
+        self.timeSincePawnMove = 0
+        self.needPromote = False
+        self.boardInit()
 
     def swapMoveMode(self):
         if self.moveMode == 'uci':

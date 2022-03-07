@@ -27,29 +27,36 @@ SQUARE_SIZE = (BOARD_SIZE // 8)
 WHITE = (233, 211, 176)
 BLACK = (180, 136, 99)
 GRAY = (61, 58, 55)
-LIGHT_GRAY = (49,46,43, 102)
+LIGHT_GRAY = (159,156,153,102)
 GREEN = (45, 138, 44, 150)
 PURPLE = (164, 164, 205)
 YELLOW = (247,235,118, 150)
 rows = ['a','b','c','d','e','f','g','h']
 SPRITES = {}
 TEXTS = {}
+BUTTON_OFFSETS = {}
+BUTTONS = {}
 SOUNDS = {}
 selectedLoc = None
 pieceStyle = 'frugale'
 autoQueen = False
 animating = []  #hold tuples of (piece, startLoc, endLoc)
+set_orientation = 'random'
 orientation = None
+starting_orientation = None
 players = ['stockfish','manual'] # [top, bottom]
 agent_delay = (0.5,2)  # around 1 second for AI to respond
 audio = True
-
+stockfish_params = {
+    'depth' : 18,
+    'elo' : 2000,
+    'thinking_time' : 400,
+}
 
 
 def main():
     global BOARD_SIZE
     global SQUARE_SIZE
-    global orientation
     global SOUNDS
 
     # initialize window
@@ -58,7 +65,7 @@ def main():
     pygame.display.set_icon(pygame.image.load('icon.png'))
 
     # choose board orientation
-    orientation = Team(random.randint(0,1))
+    reset_orientation()
 
     # create screen and clock
     screen = screen_init()  # creates screen and also sprites
@@ -69,7 +76,7 @@ def main():
 
     # create agent arrays
     agents = {'random' : RandomAgent(board),
-              'stockfish' : StockfishAgent(board, elo=2000, thinking_time=400)}
+              'stockfish' : StockfishAgent(board, **stockfish_params)}
 
     # import sounds
     SOUNDS['move'] = pygame.mixer.Sound(os.path.join('sounds', 'move-self.wav'))
@@ -107,8 +114,9 @@ def main():
                 screen = screen_init()
                 visualDelta = True
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                move_return = click(event, board, screen, move_return)
-                visualDelta = bool(move_return)
+                if event.button == 1:
+                    move_return = click(event, board, screen, move_return)
+                    visualDelta = bool(move_return)
 
         # do agent
         if getMovingAgent(board) in agents.keys():
@@ -178,6 +186,9 @@ def render(screen, board, move_return):
     if move_return == 'need_promote':
         draw_promote(screen, board)
 
+    # draw menu
+    draw_menu(screen, board)
+
     #play sound
     if audio:
         if move_return in ['moved', 'promoted']:
@@ -193,6 +204,14 @@ def render(screen, board, move_return):
 
     # Flip the display
     pygame.display.flip()
+
+def draw_menu(screen, board):
+
+    if is_menu_open:
+        pass
+    else:
+        for key in BUTTON_OFFSETS:
+            screen.blit(TEXTS[key], BUTTON_OFFSETS[key])
 
 def sprite_gen():
     global SPRITES
@@ -236,21 +255,39 @@ def sprite_gen():
 
 def font_gen():
     global TEXTS
+    global BUTTON_OFFSETS
+    global BUTTONS
 
     # import font
     font = pygame.font.Font(os.path.join('fonts', 'Segoe UI.ttf'), SQUARE_SIZE//5)
-    icons = pygame.font.Font(os.path.join('fonts', 'chessglyph.ttf'), SQUARE_SIZE//5)
+    icons = pygame.font.Font(os.path.join('fonts', 'chessglyph.ttf'), round(SQUARE_SIZE/1.7))
 
     for i, file in enumerate(rows):
         TEXTS[file] = font.render(file, True, WHITE if i % 2 == orientation.value else BLACK)
     for i in range(1,9):
         TEXTS[str(i)] = font.render(str(i), True, BLACK if i%2==0 else WHITE)
 
-    TEXTS['settings'] = font.render('.', True, LIGHT_GRAY)
-    TEXTS['flip'] = font.render('f', True, LIGHT_GRAY)
-    TEXTS['resign'] = font.render('Y', True, LIGHT_GRAY)
-    TEXTS['reset'] = font.render('L', True, LIGHT_GRAY)
-    TEXTS['draw'] = font.render('+', True, LIGHT_GRAY)
+    TEXTS['settings'] = icons.render('·', True, LIGHT_GRAY)
+    TEXTS['flip'] = icons.render('f', True, LIGHT_GRAY)
+    TEXTS['resign'] = icons.render('Y', True, LIGHT_GRAY)
+    TEXTS['reset'] = icons.render('L', True, LIGHT_GRAY)
+    TEXTS['right_arrow'] = icons.render('…', True, LIGHT_GRAY)
+    TEXTS['draw'] = pygame.transform.smoothscale(icons.render('+', True, LIGHT_GRAY),TEXTS['right_arrow'].get_size())
+
+    # recompute button offsets
+    BUTTON_OFFSETS = {
+        'settings': (BOARD_SIZE + round(SQUARE_SIZE / 13), -round(SQUARE_SIZE / 10)),
+        'flip': (BOARD_SIZE + round(SQUARE_SIZE / 14), round(SQUARE_SIZE / 2.5)),
+        'right_arrow': (BOARD_SIZE + round(SQUARE_SIZE / 10), round(SQUARE_SIZE * 3.575)),
+        'draw': (BOARD_SIZE + round(SQUARE_SIZE / 13), round(SQUARE_SIZE * 6.25)),
+        'resign': (BOARD_SIZE + round(SQUARE_SIZE / 14), round(SQUARE_SIZE * 6.8)),
+        'reset': (BOARD_SIZE + round(SQUARE_SIZE / 14), round(SQUARE_SIZE * 7.3)),
+    }
+
+    # store rect of button locations
+    for key in BUTTON_OFFSETS:
+        BUTTONS[key] = TEXTS[key].get_bounding_rect().move(BUTTON_OFFSETS[key])
+
 
 
 def svg_load(filename, scale):
@@ -276,11 +313,15 @@ def svg_load(filename, scale):
 def screen_init(s=None):
     global BOARD_SIZE
     global SQUARE_SIZE
+    global MENU_BAR_SIZE
+    global MENU_SIZE
 
     # discrete board size to avoid white borders
     if BOARD_SIZE % 8 != 0:
         BOARD_SIZE -= BOARD_SIZE % 8
         SQUARE_SIZE = (BOARD_SIZE // 8)
+        MENU_BAR_SIZE = (BOARD_SIZE // 16)
+        MENU_SIZE = (BOARD_SIZE // 3)
 
     #init screen
     #if s == 'fullscreen':
@@ -300,6 +341,8 @@ def click(event, board, screen, move_return):
 
     if event.pos[0] < BOARD_SIZE:
         return board_click(event, board, screen, move_return)
+    else:
+        return menu_click(event, board, screen, move_return)
 
 def board_click(event, board, screen, move_return):
     global selectedLoc
@@ -348,7 +391,14 @@ def board_click(event, board, screen, move_return):
     return True
 
 def menu_click(event, board, screen, move_return):
-    pass
+
+    if BUTTONS['flip'].collidepoint(event.pos):
+        flipBoard()
+        return True
+    if BUTTONS['reset'].collidepoint(event.pos):
+        reset(board)
+        return True
+
 def draw_promote(screen, board):
 
     mask = pygame.Surface((BOARD_SIZE, BOARD_SIZE), pygame.SRCALPHA)
@@ -379,13 +429,31 @@ def translateLoc(loc, y=None):
         return ((loc.x - 1) * SQUARE_SIZE, (loc.y-1) * SQUARE_SIZE)
 
 def getMovingAgent(board):
-    return players[(board.getActiveTeam().value + orientation.value+1) % 2]
+    return players[(board.getActiveTeam().value + starting_orientation.value+1) % 2]
 
 def flipBoard():
     global orientation
 
-    orientation = orientation.opposite()
+    orientation = orientation.opponent()
     font_gen()
+
+def reset_orientation():
+    global orientation
+    global starting_orientation
+
+    if set_orientation == 'random':
+        starting_orientation = Team(random.randint(0,1))
+        orientation = starting_orientation
+    elif set_orientation.lower() == 'white':
+        starting_orientation = Team(0)
+        orientation = Team(0)
+    elif set_orientation.lower() == 'black':
+        starting_orientation = Team(1)
+        orientation = Team(1)
+
+def reset(board):
+    board.reset()
+    reset_orientation()
 
 if __name__ == "__main__":
     main()
