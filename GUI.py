@@ -1,6 +1,7 @@
 import os
 import io
 import random
+import sys
 """
      TODO 
      1. Fix Promotion. Check.
@@ -9,7 +10,7 @@ import random
      4. Multiple piece styles. No need.
      5. Add info bar + flip button + resign, restart, draw
      6. end screen
-     7. Add smarter, yet determninistic agent.
+     7. Add smarter, yet deterministic agent.
      8. Go full RL.
 """
 import pygame
@@ -17,6 +18,8 @@ from Board import Board
 from Piece import Piece, PieceType, Team
 from Location import Location
 from Agent import RandomAgent, StockfishAgent
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    os.chdir(sys._MEIPASS)
 
 # Set up the drawing window
 BOARD_SIZE = 704
@@ -30,7 +33,7 @@ GRAY = (61, 58, 55)
 LIGHT_GRAY = (159,156,153,102)
 GREEN = (45, 138, 44, 150)
 PURPLE = (164, 164, 205)
-YELLOW = (247,235,118, 150)
+YELLOW = (247,235,118,150)
 rows = ['a','b','c','d','e','f','g','h']
 SPRITES = {}
 TEXTS = {}
@@ -62,7 +65,7 @@ def main():
     # initialize window
     pygame.init()
     pygame.display.set_caption('Chess() by Nihal')
-    pygame.display.set_icon(pygame.image.load('icon.png'))
+    pygame.display.set_icon(pygame.image.load(os.path.join('resources','icon.png')))
 
     # choose board orientation
     reset_orientation()
@@ -79,11 +82,11 @@ def main():
               'stockfish' : StockfishAgent(board, **stockfish_params)}
 
     # import sounds
-    SOUNDS['move'] = pygame.mixer.Sound(os.path.join('sounds', 'move-self.wav'))
-    SOUNDS['take'] = pygame.mixer.Sound(os.path.join('sounds', 'capture.wav'))
-    SOUNDS['castle'] = pygame.mixer.Sound(os.path.join('sounds', 'castle.wav'))
-    SOUNDS['check'] = pygame.mixer.Sound(os.path.join('sounds', 'move-check.wav'))
-    SOUNDS['game_over'] = pygame.mixer.Sound(os.path.join('sounds', 'game-end.wav'))
+    SOUNDS['move'] = pygame.mixer.Sound(os.path.join('resources','sounds', 'move-self.wav'))
+    SOUNDS['take'] = pygame.mixer.Sound(os.path.join('resources','sounds', 'capture.wav'))
+    SOUNDS['castle'] = pygame.mixer.Sound(os.path.join('resources','sounds', 'castle.wav'))
+    SOUNDS['check'] = pygame.mixer.Sound(os.path.join('resources','sounds', 'move-check.wav'))
+    SOUNDS['game_over'] = pygame.mixer.Sound(os.path.join('resources','sounds', 'game-end.wav'))
 
 
     # Run until the user asks to quit
@@ -219,7 +222,7 @@ def sprite_gen():
     SPRITES = {}
 
     for s in ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']:
-        path = os.path.join('piece_sprites',pieceStyle, f'{s}.')
+        path = os.path.join('resources','piece_sprites',pieceStyle, f'{s}.')
         if os.path.exists(path+'svg'):
             SPRITES[s] = svg_load((path+'svg'), SQUARE_SIZE).convert_alpha()
         elif os.path.exists(path+'png'):
@@ -259,8 +262,8 @@ def font_gen():
     global BUTTONS
 
     # import font
-    font = pygame.font.Font(os.path.join('fonts', 'Segoe UI.ttf'), SQUARE_SIZE//5)
-    icons = pygame.font.Font(os.path.join('fonts', 'chessglyph.ttf'), round(SQUARE_SIZE/1.7))
+    font = pygame.font.Font(os.path.join('resources','fonts', 'Segoe UI.ttf'), SQUARE_SIZE//5)
+    icons = pygame.font.Font(os.path.join('resources','fonts', 'chessglyph.ttf'), round(SQUARE_SIZE/1.7))
 
     for i, file in enumerate(rows):
         TEXTS[file] = font.render(file, True, WHITE if i % 2 == orientation.value else BLACK)
@@ -283,6 +286,10 @@ def font_gen():
         'resign': (BOARD_SIZE + round(SQUARE_SIZE / 14), round(SQUARE_SIZE * 6.8)),
         'reset': (BOARD_SIZE + round(SQUARE_SIZE / 14), round(SQUARE_SIZE * 7.3)),
     }
+
+    if not os.name == 'nt':
+        for key, item in BUTTON_OFFSETS.items():
+            BUTTON_OFFSETS[key] = (item[0],item[1]+round(SQUARE_SIZE / 10))
 
     # store rect of button locations
     for key in BUTTON_OFFSETS:
@@ -398,6 +405,20 @@ def menu_click(event, board, screen, move_return):
     if BUTTONS['reset'].collidepoint(event.pos):
         reset(board)
         return True
+    if BUTTONS['resign'].collidepoint(event.pos):
+        if getMovingAgent(board) == 'manual':
+            board.move('resign')
+            return True
+    if BUTTONS['draw'].collidepoint(event.pos):
+        if getMovingAgent(board) == 'manual':
+            board.move('draw')
+            return True
+    if BUTTONS['settings'].collidepoint(event.pos):
+        reset(board)
+        return True
+    if BUTTONS['right_arrow'].collidepoint(event.pos) and board.gameOver:
+        pass
+
 
 def draw_promote(screen, board):
 

@@ -22,12 +22,14 @@ class StockfishAgent(object):
 
     def __init__(self, board, depth=18, elo=None, thinking_time=None):
         self.board = board
+
         if os.name == 'nt':
-            self.stockfish = Stockfish(path=os.path.join('stockfish', 'stockfish.exe'), depth=depth,
+            self.stockfish = Stockfish(path=os.path.join('resources','stockfish', 'stockfish.exe'), depth=depth,
                               parameters={"Threads": 2, "Minimum Thinking Time": 30})
         else:
-            self.stockfish = Stockfish(path=os.path.join('stockfish', 'stockfish'), depth=depth,
-                              parameters={"Threads": 2, "Minimum Thinking Time": 30})
+            self.stockfish = Stockfish(path=os.path.join('resources','stockfish', 'stockfish'), depth=depth,
+                                       parameters={"Threads": 2, "Minimum Thinking Time": 30})
+
         if elo:
             self.stockfish.set_elo_rating(elo)
         self.thinking_time = thinking_time
