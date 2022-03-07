@@ -16,7 +16,7 @@ import pygame
 from Board import Board
 from Piece import Piece, PieceType, Team
 from Location import Location
-from Agent import RandomAgent
+from Agent import RandomAgent, StockfishAgent
 
 # Set up the drawing window
 BOARD_SIZE = 704
@@ -40,8 +40,8 @@ pieceStyle = 'frugale'
 autoQueen = False
 animating = []  #hold tuples of (piece, startLoc, endLoc)
 orientation = None
-players = ['random','manual'] # [top, bottom]
-agent_delay = (0,0)  # around 1 second for AI to respond
+players = ['stockfish','manual'] # [top, bottom]
+agent_delay = (0.5,2)  # around 1 second for AI to respond
 audio = True
 
 
@@ -67,8 +67,9 @@ def main():
     # create board object
     board = Board()
 
-    #William the random agent
-    william = RandomAgent(board)
+    # create agent arrays
+    agents = {'random' : RandomAgent(board),
+              'stockfish' : StockfishAgent(board, elo=2000, thinking_time=400)}
 
     # import sounds
     SOUNDS['move'] = pygame.mixer.Sound(os.path.join('sounds', 'move-self.wav'))
@@ -84,6 +85,7 @@ def main():
     move_return = None
     since_move = 0
     delay = 0
+    move = None
 
     while running:
 
@@ -108,21 +110,24 @@ def main():
                 move_return = click(event, board, screen, move_return)
                 visualDelta = bool(move_return)
 
-        # do random agent
-
-        if getMovingAgent(board) == 'random':
+        # do agent
+        if getMovingAgent(board) in agents.keys():
             if not board.gameOver:
+
+                if not move and since_move:
+                    move = agents[getMovingAgent(board)].getMove()
+
                 since_move += dt
                 if not delay:
                     delay = random.uniform(agent_delay[0], agent_delay[1]) * 1000
 
                 if since_move > delay:
-                    move = william.getMove()
                     if move:
                         move_return = board.move(move)
                         visualDelta = True
                         since_move = 0
                         delay = 0
+                        move = None
 
         if visualDelta:
             render(screen, board, move_return)
@@ -234,11 +239,18 @@ def font_gen():
 
     # import font
     font = pygame.font.Font(os.path.join('fonts', 'Segoe UI.ttf'), SQUARE_SIZE//5)
+    icons = pygame.font.Font(os.path.join('fonts', 'chessglyph.ttf'), SQUARE_SIZE//5)
 
     for i, file in enumerate(rows):
         TEXTS[file] = font.render(file, True, WHITE if i % 2 == orientation.value else BLACK)
     for i in range(1,9):
         TEXTS[str(i)] = font.render(str(i), True, BLACK if i%2==0 else WHITE)
+
+    TEXTS['settings'] = font.render('.', True, LIGHT_GRAY)
+    TEXTS['flip'] = font.render('f', True, LIGHT_GRAY)
+    TEXTS['resign'] = font.render('Y', True, LIGHT_GRAY)
+    TEXTS['reset'] = font.render('L', True, LIGHT_GRAY)
+    TEXTS['draw'] = font.render('+', True, LIGHT_GRAY)
 
 
 def svg_load(filename, scale):
@@ -313,11 +325,13 @@ def board_click(event, board, screen, move_return):
                 modifier = ''
 
             selectedLoc = None
+
             return board.move(board.getPromotingPawn(board.getActiveTeam()).loc, board.getPromotingPawn(board.getActiveTeam()).loc, modifier=modifier)
 
     if selectedLoc:
 
         if getMovingAgent(board) == 'manual':
+
             return_value = board.move(selectedLoc, mouseLoc, modifier=('Q' if autoQueen else None))
             selectedLoc = None
             return return_value
@@ -333,6 +347,8 @@ def board_click(event, board, screen, move_return):
 
     return True
 
+def menu_click(event, board, screen, move_return):
+    pass
 def draw_promote(screen, board):
 
     mask = pygame.Surface((BOARD_SIZE, BOARD_SIZE), pygame.SRCALPHA)
@@ -364,6 +380,12 @@ def translateLoc(loc, y=None):
 
 def getMovingAgent(board):
     return players[(board.getActiveTeam().value + orientation.value+1) % 2]
+
+def flipBoard():
+    global orientation
+
+    orientation = orientation.opposite()
+    font_gen()
 
 if __name__ == "__main__":
     main()

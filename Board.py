@@ -177,7 +177,7 @@ class Board():
                     self.timeSincePawnMove = 0
 
                 # en passant
-                for p in self.getPieces(team):
+                for p in self.getPieces(team.opponent()):
                     if p.type == PieceType.PAWN and p.en_passantable:
                         p.en_passantable = False
                 if piece.type == PieceType.PAWN:
@@ -404,16 +404,11 @@ class Board():
 
 
     def canKCastle(self, team):
+
+        if not self.KCastleAvailable(team):
+            return False
+
         king = self.getKing(team)
-
-        if king.hasMoved:
-            return False
-
-        # if kingside rook is present and has not moved
-        kRook = self.getPiece(Location(8, king.y))
-        if kRook is None or kRook.hasMoved:
-            return False
-
         # check intervening squares
         locs = [Location(5, king.y), Location(6, king.y), Location(7, king.y)]
         for i, loc in enumerate(locs):
@@ -425,7 +420,20 @@ class Board():
 
         return True
 
-    def canQCastle(self, team):
+    def KCastleAvailable(self, team):
+        king = self.getKing(team)
+
+        if king.hasMoved:
+            return False
+
+        # if kingside rook is present and has not moved
+        kRook = self.getPiece(Location(8, king.y))
+        if kRook is None or kRook.hasMoved:
+            return False
+
+        return True
+
+    def QCastleAvailable(self, team):
         king = self.getKing(team)
 
         if king.hasMoved:
@@ -436,6 +444,14 @@ class Board():
         if qRook is None or qRook.hasMoved:
             return False
 
+        return True
+
+    def canQCastle(self, team):
+
+        if not self.QCastleAvailable(team):
+            return False
+
+        king = self.getKing(team)
         # check intervening squares
         locs = [Location(5, king.y), Location(4, king.y), Location(3, king.y), Location(2, king.y)]
         for i, loc in enumerate(locs):
@@ -452,4 +468,62 @@ class Board():
         for piece in self.getPieces(team):
             if piece.type == PieceType.PAWN and piece.y % 7 == 1:
                 return piece
+
+    def to_FEN(self):
+        fen = ''
+
+        # board
+        empty_counter = 0
+        en_passant = None
+        for i in range(7,-1,-1):
+            for j in range(8):
+                piece = self.board[j][i].getPiece()
+                if piece:
+                    if empty_counter:
+                        fen += str(empty_counter)
+                        empty_counter = 0
+                    if piece.color is Team.WHITE:
+                        fen += piece.type.toString()
+                    else:
+                        fen += piece.type.toString().lower()
+
+                    #en-passant
+                    if piece.en_passantable:
+                        if piece.color is Team.WHITE:
+                            en_passant = Location(piece.x, piece.y-1)
+                        else:
+                            en_passant = Location(piece.x, piece.y+1)
+
+                else:
+                    empty_counter += 1
+            if empty_counter:
+                fen += str(empty_counter)
+                empty_counter = 0
+            if i != 0:
+                fen += '/'
+
+        # whose turn?
+        fen += ' ' + ('w' if self.getActiveTeam() is Team.WHITE else 'b') + ' '
+
+        # castling
+        fen += 'K' if self.KCastleAvailable(Team.WHITE) else ''
+        fen += 'Q' if self.QCastleAvailable(Team.WHITE) else ''
+        fen += 'k' if self.KCastleAvailable(Team.BLACK) else ''
+        fen += 'q' if self.QCastleAvailable(Team.BLACK) else ''
+        fen += ' '
+
+        # en passant
+        if en_passant:
+            fen += en_passant.toNotation() + ' '
+        else:
+            fen += '- '
+
+        # halfmoves since pawn/capture
+        fen += str(self.timeSincePawnMove) + ' '
+
+        # turn number
+        fen += str(self.turn//2+1)
+
+        return fen
+
 
