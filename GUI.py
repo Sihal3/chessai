@@ -2,6 +2,8 @@ import os
 import io
 import random
 import sys
+import threading
+
 """
      TODO 
      1. Fix Promotion. Check.
@@ -17,7 +19,7 @@ import pygame
 from Board import Board
 from Piece import Piece, PieceType, Team
 from Location import Location
-from Agent import RandomAgent, StockfishAgent
+from Agent import RandomAgent, StockfishAgent, LeelaAgent
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     os.chdir(sys._MEIPASS)
 
@@ -47,14 +49,20 @@ animating = []  #hold tuples of (piece, startLoc, endLoc)
 set_orientation = 'random'
 orientation = None
 starting_orientation = None
-players = ['stockfish','manual'] # [top, bottom]
+players = ['leela','stockfish'] # [top, bottom]
 agent_delay = (0.5,2)  # around 1 second for AI to respond
 audio = True
 stockfish_params = {
     'depth' : 18,
-    'elo' : 2000,
-    'thinking_time' : 400,
+    #'elo' : 2000,
+    'thinking_time' : 3000,
 }
+leela_params = {
+    'depth' : 18,
+    #'elo' : 2000,
+    'thinking_time' : 3000,
+}
+
 
 
 def main():
@@ -78,8 +86,7 @@ def main():
     board = Board()
 
     # create agent arrays
-    agents = {'random' : RandomAgent(board),
-              'stockfish' : StockfishAgent(board, **stockfish_params)}
+    load_agents(board, players)
 
     # import sounds
     SOUNDS['move'] = pygame.mixer.Sound(os.path.join('resources','sounds', 'move-self.wav'))
@@ -96,6 +103,7 @@ def main():
     since_move = 0
     delay = 0
     move = None
+    move_task = None
 
     while running:
 
@@ -121,32 +129,46 @@ def main():
                     move_return = click(event, board, screen, move_return)
                     visualDelta = bool(move_return)
 
+        if visualDelta:
+            render(screen, board, move_return)
+            visualDelta = False
+
         # do agent
         if getMovingAgent(board) in agents.keys():
             if not board.gameOver:
-
-                if not move and since_move:
-                    move = agents[getMovingAgent(board)].getMove()
 
                 since_move += dt
                 if not delay:
                     delay = random.uniform(agent_delay[0], agent_delay[1]) * 1000
 
-                if since_move > delay:
-                    if move:
-                        move_return = board.move(move)
-                        visualDelta = True
-                        since_move = 0
-                        delay = 0
-                        move = None
-
-        if visualDelta:
-            render(screen, board, move_return)
-            visualDelta = False
-
+                if not move_task:
+                    move = []
+                    move_task = threading.Thread(target=get_agent_move, args=[board,move,], daemon=True)
+                    move_task.start()
+                else:
+                    if not move_task.is_alive():
+                        if since_move > delay:
+                            if move:
+                                move_return = board.move(move[0])
+                                visualDelta = True
+                                since_move = 0
+                                delay = 0
+                                move = None
+                                move_task = None
+                    else:
+                        pass
+                        #still waiting, pass
 
     # Done! Time to quit.
     pygame.quit()
+
+def get_agent_move(board, move):
+    global agents
+    # do agent
+    if getMovingAgent(board) in agents.keys():
+        if not board.gameOver:
+            move.append(agents[getMovingAgent(board)].getMove())
+
 
 def render(screen, board, move_return):
     # Fill the background with white
@@ -174,12 +196,13 @@ def render(screen, board, move_return):
     # draw selected highlight
     if selectedLoc:
         screen.blit(SPRITES['sH'], translateLoc(selectedLoc))
-        if board.getPiece(selectedLoc).color is board.getActiveTeam():
-            for _, toLoc, _ in board.getPiece(selectedLoc).getLegalMoves(mode='loc'):
-                if board.getPiece(toLoc):
-                    screen.blit(SPRITES['tH'], translateLoc(toLoc))
-                else:
-                    screen.blit(SPRITES['cH'], translateLoc(toLoc))
+        if board.getPiece(selectedLoc):
+            if board.getPiece(selectedLoc).color is board.getActiveTeam():
+                for _, toLoc, _ in board.getPiece(selectedLoc).getLegalMoves(mode='loc'):
+                    if board.getPiece(toLoc):
+                        screen.blit(SPRITES['tH'], translateLoc(toLoc))
+                    else:
+                        screen.blit(SPRITES['cH'], translateLoc(toLoc))
 
     # draw pieces
     for piece in board.getPieces('both'):
@@ -475,6 +498,21 @@ def reset_orientation():
 def reset(board):
     board.reset()
     reset_orientation()
+
+def load_agents(board, players):
+    global agents
+    agents = {}
+    if 'random' in players:
+        agents['random'] = RandomAgent(board)
+    if 'stockfish' in players:
+        agents['stockfish'] = StockfishAgent(board, **stockfish_params)
+    if 'leela' in players:
+        agents['leela'] = LeelaAgent(board, **leela_params)
+    if 'maia' in players:
+        pass
+    if 'centurion' in players:
+        pass
+    return agents
 
 if __name__ == "__main__":
     main()
