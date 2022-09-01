@@ -407,6 +407,7 @@ def getLegalMoves(self, mode='str'):
                 moveList.append((self.loc, self.forwardLoc, 'r'))
                 moveList.append((self.loc, self.forwardLoc, 'b'))
                 moveList.append((self.loc, self.forwardLoc, 'n'))
+                moveList.append((self.loc, self.forwardLoc, ''))
             else:
                 moveList.append((self.loc, self.forwardLoc, ''))
 

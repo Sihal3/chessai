@@ -52,7 +52,7 @@ agent_delay = (0.5,2)  # around 1 second for AI to respond
 audio = True
 stockfish_params = {
     'depth' : 18,
-    'elo' : 2000,
+    'elo' : 1000,
     'thinking_time' : 400,
 }
 
@@ -155,12 +155,12 @@ def render(screen, board, move_return):
     # draw squares
     for i in range(8):
         for j in range(8):
-            pygame.draw.rect(screen, BLACK if (i + j) % 2 == (orientation.value+1)%2 else WHITE,
+            pygame.draw.rect(screen, BLACK if (i + j) % 2 == 1 else WHITE,
                                   (i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
     # draw notations
     for i, rank in enumerate(['a','b','c','d','e','f','g','h']):
-        screen.blit(TEXTS[rank], ((i+1)*SQUARE_SIZE-round(SQUARE_SIZE/7), 7*SQUARE_SIZE+round(SQUARE_SIZE*11/15)))
+        screen.blit(TEXTS[rank], (((i+1)if orientation is Team.WHITE else (8-i))*SQUARE_SIZE-round(SQUARE_SIZE/7), 7*SQUARE_SIZE+round(SQUARE_SIZE*11/15)))
     for i in range(1,9):
         screen.blit(TEXTS[str(i)], (round(SQUARE_SIZE/15), (8-i if orientation is Team.WHITE else i-1) * SQUARE_SIZE))
 
@@ -216,6 +216,9 @@ def draw_menu(screen, board):
         for key in BUTTON_OFFSETS:
             screen.blit(TEXTS[key], BUTTON_OFFSETS[key])
 
+def draw_over(screen, board):
+    pass
+
 def sprite_gen():
     global SPRITES
 
@@ -266,9 +269,9 @@ def font_gen():
     icons = pygame.font.Font(os.path.join('resources','fonts', 'chessglyph.ttf'), round(SQUARE_SIZE/1.7))
 
     for i, file in enumerate(rows):
-        TEXTS[file] = font.render(file, True, WHITE if i % 2 == orientation.value else BLACK)
+        TEXTS[file] = font.render(file, True, WHITE if i%2 == orientation.value else BLACK)
     for i in range(1,9):
-        TEXTS[str(i)] = font.render(str(i), True, BLACK if i%2==0 else WHITE)
+        TEXTS[str(i)] = font.render(str(i), True, BLACK if i%2==orientation.value else WHITE)
 
     TEXTS['settings'] = icons.render('·', True, LIGHT_GRAY)
     TEXTS['flip'] = icons.render('f', True, LIGHT_GRAY)
@@ -357,7 +360,7 @@ def board_click(event, board, screen, move_return):
     if orientation is Team.WHITE:
         mouseLoc = Location(event.pos[0]//SQUARE_SIZE+1, 8-event.pos[1]//SQUARE_SIZE)
     else:
-        mouseLoc = Location(event.pos[0]//SQUARE_SIZE+1, event.pos[1]//SQUARE_SIZE+1)
+        mouseLoc = Location(8-event.pos[0]//SQUARE_SIZE, event.pos[1]//SQUARE_SIZE+1)
 
     if getMovingAgent(board) == 'manual':
         if move_return == 'need_promote':
@@ -427,7 +430,7 @@ def draw_promote(screen, board):
 
     screen.blit(mask, (0,0))
 
-    x = (board.getPromotingPawn(board.getActiveTeam()).x-1)
+    x = (board.getPromotingPawn(board.getActiveTeam()).x-1) if orientation is Team.WHITE else (8-board.getPromotingPawn(board.getActiveTeam()).x)
     y = (0 if board.getActiveTeam() is orientation else 4)
 
     for i in range(4):
@@ -443,11 +446,11 @@ def translateLoc(loc, y=None):
         if orientation is Team.WHITE:
             return ((loc - 1) * SQUARE_SIZE, (8 - y) * SQUARE_SIZE)
         else:
-            return ((loc - 1) * SQUARE_SIZE, (y - 1) * SQUARE_SIZE)
+            return ((8-loc) * SQUARE_SIZE, (y - 1) * SQUARE_SIZE)
     if orientation is Team.WHITE:
         return ((loc.x - 1) * SQUARE_SIZE, (8 - loc.y) * SQUARE_SIZE)
     else:
-        return ((loc.x - 1) * SQUARE_SIZE, (loc.y-1) * SQUARE_SIZE)
+        return ((8-loc.x) * SQUARE_SIZE, (loc.y-1) * SQUARE_SIZE)
 
 def getMovingAgent(board):
     return players[(board.getActiveTeam().value + starting_orientation.value+1) % 2]
@@ -475,6 +478,7 @@ def reset_orientation():
 def reset(board):
     board.reset()
     reset_orientation()
+    font_gen()
 
 if __name__ == "__main__":
     main()
